@@ -52,8 +52,8 @@ Developer Tools
 English (United States)
 
 ## Privacy policy URL
-(host `store/privacy-policy.html` — e.g. via GitHub Pages — and put the
-resulting URL here before submitting)
+https://jackdnichols.github.io/site-scanner/privacy-policy.html
+(served from `privacy-policy.html` at repo root via GitHub Pages)
 
 ## Single purpose description
 (required field in the CWS developer dashboard)

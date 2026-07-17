@@ -1,11 +1,18 @@
 # Submission checklist
 
 ## 1. Host the privacy policy
-`store/privacy-policy.html` needs a public URL before either store will
-accept the listing. Easiest option: push this repo to GitHub and enable
-GitHub Pages (Settings → Pages → serve from `/store` or copy the file to
-`/docs`). Once live, fill the URL into `chrome-web-store-listing.md` and
-`edge-addons-listing.md`.
+`privacy-policy.html` (repo root) needs a public URL before either store
+will accept the listing.
+
+- [x] Pushed to `github.com/jackdnichols/site-scanner` (main branch)
+- [ ] Enable GitHub Pages: repo Settings → Pages → Build and deployment
+      → Source: "Deploy from a branch" → Branch: `main`, folder `/ (root)`
+      → Save
+- [ ] Confirm it's live at
+      https://jackdnichols.github.io/site-scanner/privacy-policy.html
+      (can take a minute or two after first enabling)
+
+Both listing docs already reference this URL.
 
 ## 2. Capture a screenshot
 Both stores want at least one 1280×800 (or 640×400) screenshot. Load the

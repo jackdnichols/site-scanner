@@ -18,7 +18,8 @@ content, lower-env leaks, typos, and SEO/accessibility issues.
 Developer Tools
 
 ## Privacy policy URL
-Same hosted URL used for the Chrome Web Store listing.
+https://jackdnichols.github.io/site-scanner/privacy-policy.html
+(same URL used for the Chrome Web Store listing)
 
 ## Permissions justification
 Edge's Partner Center review focuses on the same broad-host-permission
