@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Site Scanner — Privacy Policy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 16px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 1.5em; }
+  h2 { font-size: 1.1em; margin-top: 1.5em; }
+  code { background: #f2f2f2; padding: 0.1em 0.3em; border-radius: 3px; }
+  ul { padding-left: 1.3em; }
+</style>
+</head>
+<body>
+
+<h1>Site Scanner — Privacy Policy</h1>
+<p><strong>Effective date:</strong> 2026-07-17</p>
+
+<p>Site Scanner is a browser extension that audits websites the user
+chooses to scan. This policy explains what the extension does and does
+not do with data.</p>
+
+<h2>What Site Scanner does</h2>
+<ul>
+  <li>The user manually enters a Start URL (or clicks the toolbar icon to
+    prefill one from the active tab) for a site <strong>they choose</strong>.</li>
+  <li>The extension then crawls that origin — fetching pages and linked
+    resources from within the extension's own tab — to check for broken
+    links, missing images, mixed content, lower-environment link leaks,
+    spelling issues, basic SEO/accessibility problems, and user-supplied
+    word/phrase matches.</li>
+  <li>Scan results and lightweight scan history (which findings were seen
+    on a previous run, per site origin) are saved using
+    <code>chrome.storage.local</code>, which keeps data <strong>on the
+    user's own device</strong>.</li>
+  <li>Scan presets (pattern lists, ignore lists, search terms, checkbox
+    settings) are likewise saved locally, keyed to the site origin, so
+    repeat scans of the same site don't require re-entering
+    configuration.</li>
+</ul>
+
+<h2>What Site Scanner does not do</h2>
+<ul>
+  <li>It does not collect, transmit, sell, or share any data with the
+    developer or any third party.</li>
+  <li>It does not use analytics, telemetry, or tracking of any kind.</li>
+  <li>It does not access browsing history beyond the single active tab's
+    URL at the moment the toolbar icon is clicked (used only to prefill
+    the Start URL field).</li>
+  <li>It does not inject scripts into pages the user visits; it only
+    fetches pages the user directs it to scan, from its own extension
+    tab.</li>
+  <li>It does not run remote or dynamically evaluated code. All logic
+    ships in the extension package.</li>
+</ul>
+
+<h2>Permissions</h2>
+<ul>
+  <li><strong><code>activeTab</code></strong> — read the URL of the tab
+    that was active when the toolbar icon was clicked, to prefill the
+    scanner's Start URL field. No other access to that tab occurs.</li>
+  <li><strong><code>storage</code></strong> — save scan history and
+    presets locally via <code>chrome.storage.local</code>. Nothing stored
+    here ever leaves the browser.</li>
+  <li><strong>Host permissions (<code>http://*/*</code>,
+    <code>https://*/*</code>)</strong> — required so the user can point
+    the scanner at any website they choose to audit. The extension only
+    fetches a site when the user explicitly enters its URL and starts a
+    scan; it does not act on any site automatically or in the
+    background.</li>
+</ul>
+
+<h2>Data retention and deletion</h2>
+<p>All data lives in <code>chrome.storage.local</code> on the user's own
+device. Users can clear it at any time via "Clear saved scan history for
+this origin" in the extension, or by removing the extension entirely
+(which deletes its local storage).</p>
+
+<h2>Changes to this policy</h2>
+<p>If Site Scanner's data practices change, this document will be updated
+and the effective date above will change accordingly.</p>
+
+<h2>Contact</h2>
+<p><a href="mailto:jackni41@gmail.com">jackni41@gmail.com</a></p>
+
+</body>
+</html>
