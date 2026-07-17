@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Site Scanner",
   "version": "1.0",
-  "description": "Personal site scanner: crawl any site you point it at to find lower-environment link leaks, missing images, spelling issues, and word/phrase matches.",
+  "description": "Crawl any site you point it at to find broken links, missing images, mixed content, lower-env leaks, typos, and SEO issues.",
   "permissions": [
     "storage",
     "activeTab"
