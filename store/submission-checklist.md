@@ -5,20 +5,18 @@
 will accept the listing.
 
 - [x] Pushed to `github.com/jackdnichols/site-scanner` (main branch)
-- [ ] Enable GitHub Pages: repo Settings → Pages → Build and deployment
-      → Source: "Deploy from a branch" → Branch: `main`, folder `/ (root)`
-      → Save
-- [ ] Confirm it's live at
+- [x] Enabled GitHub Pages: Source "Deploy from a branch", branch `main`,
+      folder `/ (root)`
+- [x] Confirmed live at
       https://jackdnichols.github.io/site-scanner/privacy-policy.html
-      (can take a minute or two after first enabling)
 
 Both listing docs already reference this URL.
 
 ## 2. Capture a screenshot
-Both stores want at least one 1280×800 (or 640×400) screenshot. Load the
-unpacked extension, run a scan against a real site, and screenshot the
-results tab with some findings visible — more convincing than an empty
-state.
+- [x] `store/screenshots/page-audit-results.png` — 1280×800, Page Audit
+      results against tubitv.com (real findings: missing `<h1>`, missing
+      alt, missing meta description), browser chrome and bookmarks
+      cropped out.
 
 ## 3. Package the extension
 ```
