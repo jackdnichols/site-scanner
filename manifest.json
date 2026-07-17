@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Site Scanner",
+  "version": "1.0",
+  "description": "Personal site scanner: crawl any site you point it at to find lower-environment link leaks, missing images, spelling issues, and word/phrase matches.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon_16.png",
+      "48": "icons/icon_48.png",
+      "128": "icons/icon_128.png"
+    },
+    "default_title": "Open Site Scanner"
+  },
+  "icons": {
+    "16": "icons/icon_16.png",
+    "48": "icons/icon_48.png",
+    "128": "icons/icon_128.png"
+  }
+}
