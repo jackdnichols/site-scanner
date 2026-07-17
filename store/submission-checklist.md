@@ -28,26 +28,22 @@ Don't include `store/`, `.git/`, or `.claude/` in the zip — only files the
 manifest references.
 
 ## 4. Chrome Web Store
-1. Register a developer account at the Chrome Web Store Developer
-   Dashboard (one-time $5 fee) if you haven't already.
-2. Create a new item, upload `site-scanner.zip`.
-3. Fill in listing fields from `chrome-web-store-listing.md`: summary,
-   detailed description, category, screenshots, privacy policy URL.
-4. Complete the "Privacy practices" tab: single purpose description and
-   per-permission justification, both drafted in
-   `chrome-web-store-listing.md`.
-5. Submit for review. Broad host permissions (`http://*/*`,
-   `https://*/*`) can mean a longer review cycle — don't be surprised if
-   it takes more than the typical few days.
+- [x] Uploaded `site-scanner.zip` (manifest description trimmed to 123
+      chars to clear the 132-char validation error)
+- [x] Listing fields, single purpose description, and all three
+      permission justifications filled in from `chrome-web-store-listing.md`
+- [x] Flagged for in-depth review over broad host permissions (expected,
+      not a rejection — see justification text)
+- [x] Submitted for review — pending as of 2026-07-17
 
 ## 5. Microsoft Edge Add-ons
-1. Register a Partner Center developer account (free).
-2. Create a new extension submission, upload the same
-   `site-scanner.zip`.
-3. Fill in listing fields from `edge-addons-listing.md`.
-4. Submit for certification.
+- [x] Uploaded `site-scanner.zip`, listing fields from
+      `edge-addons-listing.md`, logo `store/logo/store-logo-300.png`,
+      visibility set to Hidden
+- [x] Submitted for certification — pending as of 2026-07-17
 
 ## 6. After approval
 Update `README.md` — it currently says "Not published to any extension
 store; for personal/local use." Replace that line with store links once
-both listings are live.
+both listings are live. **Waiting on user confirmation of approval before
+making this edit** (see memory note `project_store_submission`).
