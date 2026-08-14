@@ -1,5 +1,12 @@
 # Site Scanner
 
+**Merged into ACG-State-Switcher as of 2026-08-14.** This engine (plus a fix
+for a query-param crawl-dedup bug, and a new Console Error Capture scanner)
+now lives in `ACG-State-Switcher/site-scanner.html`/`site-scanner.js`. This
+project is no longer separately developed; it's left here for history.
+
+---
+
 Personal browser extension: point it at any website and run seven scanners
 against it — lower-environment link leaks, broken links, missing images,
 mixed content, spelling/typos, a basic SEO/accessibility page audit, and
