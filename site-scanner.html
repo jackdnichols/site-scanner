@@ -7,22 +7,100 @@
 
 <style>
   :root {
+    color-scheme: light dark;
+
     --bg: #f4f7fb;
     --card: #ffffff;
     --text: #172033;
     --muted: #64748b;
     --line: #d9e2ef;
     --line-strong: #c4d2e4;
-    --blue: #2563eb;
+    --blue: #0078D4;
     --blue-soft: #eaf2ff;
-    --blue-text: #1d4ed8;
+    --blue-text: #0d5aa7;
     --green-soft: #ecfdf3;
     --green-text: #027a48;
     --red-soft: #fff1f2;
     --red-text: #b42318;
+    --blue-border: #cfe0ff;
+    --warn-text: #9a3412;
+    --amber-soft: #fef3c7;
+    --amber-text: #92400e;
     --shadow: 0 12px 30px rgba(15, 23, 42, .08);
     --radius: 14px;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e6edf3;
+      --muted: #9aa4b2;
+      --line: #2a2f3a;
+      --line-strong: #394152;
+      --blue: #3aa3ff;
+      --blue-soft: rgba(58, 163, 255, .14);
+      --blue-text: #7cc0ff;
+      --green-soft: rgba(46, 160, 67, .16);
+      --green-text: #4fd67a;
+      --red-soft: rgba(215, 25, 32, .16);
+      --red-text: #ff8080;
+      --blue-border: rgba(58, 163, 255, .35);
+      --warn-text: #ffb86b;
+      --amber-soft: rgba(217, 119, 6, .22);
+      --amber-text: #fbbf24;
+      --shadow: 0 12px 30px rgba(0, 0, 0, .35);
+    }
+  }
+
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #172033;
+    --muted: #64748b;
+    --line: #d9e2ef;
+    --line-strong: #c4d2e4;
+    --blue: #0078D4;
+    --blue-soft: #eaf2ff;
+    --blue-text: #0d5aa7;
+    --green-soft: #ecfdf3;
+    --green-text: #027a48;
+    --red-soft: #fff1f2;
+    --red-text: #b42318;
+    --blue-border: #cfe0ff;
+    --warn-text: #9a3412;
+    --amber-soft: #fef3c7;
+    --amber-text: #92400e;
+    --shadow: 0 12px 30px rgba(15, 23, 42, .08);
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --card: #171a21;
+    --text: #e6edf3;
+    --muted: #9aa4b2;
+    --line: #2a2f3a;
+    --line-strong: #394152;
+    --blue: #3aa3ff;
+    --blue-soft: rgba(58, 163, 255, .14);
+    --blue-text: #7cc0ff;
+    --green-soft: rgba(46, 160, 67, .16);
+    --green-text: #4fd67a;
+    --red-soft: rgba(215, 25, 32, .16);
+    --red-text: #ff8080;
+    --blue-border: rgba(58, 163, 255, .35);
+    --warn-text: #ffb86b;
+    --amber-soft: rgba(217, 119, 6, .22);
+    --amber-text: #fbbf24;
+    --shadow: 0 12px 30px rgba(0, 0, 0, .35);
+  }
+
+  html[data-theme="light"] ::-webkit-scrollbar { width: 10px; height: 10px; background: #f4f7fb; }
+  html[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 8px; }
+  html[data-theme="dark"]  ::-webkit-scrollbar { width: 10px; height: 10px; background: #0f1115; }
+  html[data-theme="dark"]  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 8px; }
 
   * { box-sizing: border-box; }
 
@@ -40,7 +118,7 @@
   }
 
   .hero {
-    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    background: linear-gradient(180deg, var(--card) 0%, var(--bg) 100%);
     border: 1px solid var(--line);
     border-radius: 18px;
     box-shadow: var(--shadow);
@@ -60,7 +138,7 @@
     border-radius: 999px;
     background: var(--blue-soft);
     color: var(--blue-text);
-    border: 1px solid #cfe0ff;
+    border: 1px solid var(--blue-border);
     font-size: 12px;
     font-weight: 700;
   }
@@ -97,8 +175,8 @@
     padding: 10px 12px;
     font-family: Consolas, monospace;
     font-size: 14px;
-    background: #fff;
-    color: #0f172a;
+    background: var(--card);
+    color: var(--text);
   }
 
   textarea { min-height: 84px; resize: vertical; }
@@ -117,9 +195,9 @@
     gap: 10px;
     align-items: flex-start;
     padding: 10px 12px;
-    border: 1px solid #e8eef7;
+    border: 1px solid var(--line);
     border-radius: 12px;
-    background: #fcfdff;
+    background: var(--card);
     margin-bottom: 10px;
   }
 
@@ -142,7 +220,7 @@
   button:hover { filter: brightness(.98); }
   button:disabled { opacity: .6; cursor: not-allowed; }
   button.secondary { background: #6b7280; color: #fff; }
-  button.ghost { background: var(--blue-soft); color: var(--blue-text); border: 1px solid #cfe0ff; }
+  button.ghost { background: var(--blue-soft); color: var(--blue-text); border: 1px solid var(--blue-border); }
   button.danger { background: #dc2626; }
 
   .top-bar {
@@ -163,7 +241,7 @@
   }
 
   .stat {
-    background: #fcfdff;
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 8px 10px;
@@ -210,8 +288,8 @@
 
   .status {
     background: var(--blue-soft);
-    color: #12356b;
-    border: 1px solid #cfe0ff;
+    color: var(--blue-text);
+    border: 1px solid var(--blue-border);
     border-radius: 12px;
     padding: 12px 14px;
     margin: 12px 0;
@@ -233,7 +311,7 @@
   .section-title { font-weight: 700; font-size: 15px; margin: 14px 0 8px; }
 
   .results {
-    background: #fff;
+    background: var(--card);
     border: 1px solid var(--line);
     border-radius: 12px;
     min-height: 120px;
@@ -244,17 +322,29 @@
 
   .empty { color: var(--muted); padding: 16px 0; text-align: center; }
 
-  .result { padding: 10px 0; border-bottom: 1px solid #eef2f8; font-size: 13px; }
+  .result { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
   .result:last-child { border-bottom: 0; }
   .result .bad { color: var(--red-text); font-weight: 700; word-break: break-all; }
-  .result .meta { font-size: 12px; color: #9a3412; margin-top: 2px; }
-  .result .source { font-size: 12px; color: #475569; margin-top: 2px; }
+  .result .meta { font-size: 12px; color: var(--warn-text); margin-top: 2px; }
+  .result .source { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .result .page { font-size: 12px; color: var(--muted); word-break: break-all; margin-top: 2px; }
+
+  .result .rec {
+    font-size: 12px;
+    color: var(--blue-text);
+    background: var(--blue-soft);
+    border: 1px solid var(--blue-border);
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin-top: 6px;
+  }
+  .result .rec strong { display: block; margin-bottom: 2px; }
+  .result .rec + .rec { margin-top: 4px; }
 
   .new-badge {
     display: inline-block;
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--amber-soft);
+    color: var(--amber-text);
     border-radius: 6px;
     padding: 1px 6px;
     font-size: 10px;
@@ -263,8 +353,19 @@
     vertical-align: middle;
   }
 
-  .log-panel { margin-top: 14px; }
-  .log-head { background: #0f172a; color: #e5e7eb; padding: 8px 14px; font-weight: 700; font-size: 12px; border-radius: 12px 12px 0 0; }
+  .log-panel { margin-top: 14px; border-radius: 12px; overflow: hidden; }
+  .log-head {
+    background: #0f172a;
+    color: #e5e7eb;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .log-head::-webkit-details-marker { display: none; }
+  .log-head::before { content: "▸ "; }
+  .log-panel[open] .log-head::before { content: "▾ "; }
   .log {
     background: #020617;
     color: #e5e7eb;
@@ -275,8 +376,26 @@
     white-space: pre-wrap;
     font-family: Consolas, monospace;
     font-size: 12px;
-    border-radius: 0 0 12px 12px;
   }
+
+  /* Collapsible secondary/advanced sections — hidden by default so the
+     primary URL-in, results-out flow is what you see on first look. */
+  .more-options {
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+  .more-options > summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--blue-text);
+    list-style: none;
+  }
+  .more-options > summary::-webkit-details-marker { display: none; }
+  .more-options > summary::before { content: "▸ "; }
+  .more-options[open] > summary::before { content: "▾ "; }
+  .more-options-body { margin-top: 12px; }
 
   @media (max-width: 720px) {
     body { padding: 12px; }
@@ -291,7 +410,7 @@
 <div class="wrap">
   <div class="hero">
     <h1>Site Scanner</h1>
-    <p>Four scanners you can point at any site: lower-environment link leaks, missing images, spelling/typos, and free-text word search.</p>
+    <p>Scanners you can point at any site: lower-environment link leaks, broken links, missing images, mixed content, spelling/typos, a basic SEO/accessibility page audit, free-text word search, and live console error capture with fix recommendations.</p>
     <div class="scope-note">Works on any http(s) site. Each scan stays on the origin of its own Start URL.</div>
     <div class="note">Runs as its own extension tab, not injected into the page, so requests to the target site are cross-site fetches. Cookies marked SameSite=Lax/Strict on the target site (the default for most session cookies) will not be sent, so scans see the same content a logged-out visitor would even if you're signed in on another tab.</div>
   </div>
@@ -314,43 +433,269 @@
           <button id="stopBothBtn" class="danger" style="flex:1;">Stop all</button>
         </div>
       </div>
-      <div class="help" style="margin-top:14px;">Enter a Start URL on each tab below, or reopen this scanner from the toolbar icon while on the site you want to scan to prefill it automatically.</div>
+      <div class="help" style="margin-top:14px;">Enter a Start URL on each tab below, or reopen this scanner from the toolbar icon while on the site you want to scan to prefill it automatically. "Run all" also starts the Console Errors scan on its selected target tab (see that tab), which will visibly navigate that tab through the site — the other scans run quietly in the background.</div>
 
-      <div class="check-item" style="margin-top:14px;">
-        <input type="checkbox" id="seedFromSitemap" />
-        <div><strong>Seed crawl queue from sitemap.xml</strong><div class="sub">When a scan starts, also fetch &lt;origin&gt;/sitemap.xml (and nested sitemap indexes, up to a cap) and add same-origin URLs to that scan's queue.</div></div>
-      </div>
-
-      <div class="field" style="margin-top:14px; margin-bottom:0;">
-        <label for="presetName">Scan presets for this origin</label>
-        <div class="grid-3">
-          <input id="presetName" type="text" placeholder="Preset name" />
-          <select id="presetSelect"><option value="">No saved presets</option></select>
-          <div class="toolbar">
-            <button id="presetSaveBtn" class="ghost">Save</button>
-            <button id="presetLoadBtn" class="ghost">Load</button>
-            <button id="presetDeleteBtn" class="secondary">Delete</button>
+      <details class="more-options">
+        <summary>Sitemap seeding, presets &amp; scan history</summary>
+        <div class="more-options-body">
+          <div class="check-item">
+            <input type="checkbox" id="seedFromSitemap" />
+            <div><strong>Seed crawl queue from sitemap.xml</strong><div class="sub">When a scan starts, also fetch &lt;origin&gt;/sitemap.xml (and nested sitemap indexes, up to a cap) and add same-origin URLs to that scan's queue.</div></div>
           </div>
-        </div>
-        <div class="help">Saves every pattern/ignore/term list and checkbox on this page, keyed to the origin of the Lower Env Links Start URL. Loading a preset does not change Start URLs.</div>
-      </div>
 
-      <div class="toolbar" style="margin-top:14px;">
-        <button id="exportAllBtn" class="ghost">Download all results (JSON)</button>
-        <button id="clearHistoryBtn" class="secondary">Clear saved scan history for this origin</button>
-      </div>
-      <div class="help">Each scan remembers its findings from the last run on a given origin and flags which findings are new. Clearing history resets that comparison.</div>
+          <div class="field" style="margin-top:14px; margin-bottom:0;">
+            <label for="presetName">Scan presets for this origin</label>
+            <div class="grid-3">
+              <input id="presetName" type="text" placeholder="Preset name" />
+              <select id="presetSelect"><option value="">No saved presets</option></select>
+              <div class="toolbar">
+                <button id="presetSaveBtn" class="ghost">Save</button>
+                <button id="presetLoadBtn" class="ghost">Load</button>
+                <button id="presetDeleteBtn" class="secondary">Delete</button>
+              </div>
+            </div>
+            <div class="help">Saves every pattern/ignore/term list and checkbox on this page, keyed to the origin of the Lower Env Links Start URL. Loading a preset does not change Start URLs.</div>
+          </div>
+
+          <div class="toolbar" style="margin-top:14px;">
+            <button id="exportAllBtn" class="ghost">Download all results (JSON)</button>
+            <button id="clearHistoryBtn" class="secondary">Clear saved scan history for this origin</button>
+          </div>
+          <div class="help">Each scan remembers its findings from the last run on a given origin and flags which findings are new. Clearing history resets that comparison.</div>
+        </div>
+      </details>
     </div>
   </div>
 
   <div class="tabs">
+    <button id="tabSpellBtn" class="tab-btn">Spell Check</button>
+    <button id="tabWordBtn" class="tab-btn">Word Search</button>
+    <button id="tabImagesBtn" class="tab-btn">Missing Images</button>
     <button id="tabLowerBtn" class="tab-btn active">Lower Env Links</button>
     <button id="tabLinksBtn" class="tab-btn">Broken Links</button>
-    <button id="tabImagesBtn" class="tab-btn">Missing Images</button>
     <button id="tabMixedBtn" class="tab-btn">Mixed Content</button>
-    <button id="tabSpellBtn" class="tab-btn">Spell Check</button>
+    <button id="tabConsoleBtn" class="tab-btn">Console Errors</button>
     <button id="tabAuditBtn" class="tab-btn">Page Audit</button>
-    <button id="tabWordBtn" class="tab-btn">Word Search</button>
+  </div>
+
+  <!-- ============ Spell Checker ============ -->
+  <div id="spellPanel" class="tab-panel">
+    <div class="card">
+      <div class="card-body">
+        <div class="field">
+          <label for="spellStart">Start URL</label>
+          <input id="spellStart" type="text" placeholder="https://example.com/" />
+          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
+        </div>
+        <div class="field">
+          <label for="spellIgnoreWords">Approved / ignored words</label>
+          <textarea id="spellIgnoreWords"></textarea>
+          <div class="help">One word per line. Use for brand terms, product names, acronyms, locations, and intentional copy the scanner should not report.</div>
+        </div>
+        <details class="more-options">
+          <summary>Advanced options</summary>
+          <div class="more-options-body">
+            <div class="grid-2">
+              <div class="field">
+                <label for="spellMinLength">Minimum word length</label>
+                <input id="spellMinLength" type="number" min="2" max="20" step="1" value="4" />
+              </div>
+              <div class="field">
+                <label for="spellMaxFindings">Max spell findings</label>
+                <input id="spellMaxFindings" type="number" min="25" max="5000" step="25" value="300" />
+              </div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="spellFlagUnknown" />
+              <div><strong>Also flag unknown words as review candidates</strong><div class="sub">Browser-only spell checking cannot use Chrome's private dictionary, so this mode is intentionally noisy.</div></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="spellMainContentOnly" checked />
+              <div><strong>Prefer main article/content text when available</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="spellSkipDataText" checked />
+              <div><strong>Ignore JSON, keyword arrays, and data blobs</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="spellIncludeMetaText" checked />
+              <div><strong>Include title, meta description, alt text, title text, and aria-labels</strong></div>
+            </div>
+            <div class="check-item" style="margin-bottom:0;">
+              <input type="checkbox" id="spellIncludeButtonText" />
+              <div><strong>Include button label text</strong><div class="sub">Off by default to avoid noisy "Submit"/"Search"-style matches.</div></div>
+            </div>
+          </div>
+        </details>
+        <div class="toolbar" style="margin-top:14px;">
+          <button id="spellScanBtn">Start spell check</button>
+          <button id="spellStopBtn" class="secondary">Stop spell check</button>
+          <button id="spellExportBtn" class="ghost">Download CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="spellStatus" class="status">Ready</div>
+
+    <div class="section-title">Spell check summary</div>
+    <div class="summary-grid">
+      <div class="stat"><div class="k">Status</div><div class="v" id="spellSumStatus">Ready</div></div>
+      <div class="stat"><div class="k">Duration</div><div class="v" id="spellSumDuration">0s</div></div>
+      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="spellSumPages">0</div></div>
+      <div class="stat"><div class="k">Queued</div><div class="v" id="spellSumQueued">0</div></div>
+      <div class="stat"><div class="k">Words checked</div><div class="v" id="spellSumChecked">0</div></div>
+      <div class="stat"><div class="k">Findings</div><div class="v" id="spellSumFindings">0</div></div>
+      <div class="stat"><div class="k">New vs last run</div><div class="v" id="spellSumNew">0</div></div>
+      <div class="stat"><div class="k">Skipped</div><div class="v" id="spellSumSkipped">0</div></div>
+      <div class="stat"><div class="k">Errors</div><div class="v" id="spellSumErrors">0</div></div>
+    </div>
+
+    <div class="section-title">Spell check results</div>
+    <div id="spellResults" class="results"><div class="empty">No results yet.</div></div>
+
+    <details class="log-panel">
+      <summary class="log-head">Spell checker log</summary>
+      <div id="spellLog" class="log"></div>
+    </details>
+  </div>
+
+  <!-- ============ Word Search ============ -->
+  <div id="wordPanel" class="tab-panel">
+    <div class="card">
+      <div class="card-body">
+        <div class="field">
+          <label for="wordStart">Start URL</label>
+          <input id="wordStart" type="text" placeholder="https://example.com/" />
+          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
+        </div>
+        <div class="field">
+          <label for="wordTerms">Words / phrases to search</label>
+          <textarea id="wordTerms"></textarea>
+          <div class="help">One word or phrase per line. Searches visible page copy and reports page/source/context matches.</div>
+        </div>
+        <details class="more-options">
+          <summary>Advanced options</summary>
+          <div class="more-options-body">
+            <div class="field">
+              <label for="wordMaxFindings">Max word search findings</label>
+              <input id="wordMaxFindings" type="number" min="25" max="5000" step="25" value="500" />
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="wordCaseSensitive" />
+              <div><strong>Case-sensitive search</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="wordWholeWord" checked />
+              <div><strong>Match whole words for single-word searches</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="wordMainContentOnly" checked />
+              <div><strong>Prefer main article/content text when available</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="wordIncludeMetaText" checked />
+              <div><strong>Include title, meta description, alt text, title text, and aria-labels</strong></div>
+            </div>
+            <div class="check-item" style="margin-bottom:0;">
+              <input type="checkbox" id="wordIncludeButtonText" />
+              <div><strong>Include button label text</strong><div class="sub">Off by default to avoid noisy "Submit"/"Search"-style matches.</div></div>
+            </div>
+          </div>
+        </details>
+        <div class="toolbar" style="margin-top:14px;">
+          <button id="wordScanBtn">Start word search</button>
+          <button id="wordStopBtn" class="secondary">Stop word search</button>
+          <button id="wordExportBtn" class="ghost">Download CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="wordStatus" class="status">Ready</div>
+
+    <div class="section-title">Word search summary</div>
+    <div class="summary-grid">
+      <div class="stat"><div class="k">Status</div><div class="v" id="wordSumStatus">Ready</div></div>
+      <div class="stat"><div class="k">Duration</div><div class="v" id="wordSumDuration">0s</div></div>
+      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="wordSumPages">0</div></div>
+      <div class="stat"><div class="k">Queued</div><div class="v" id="wordSumQueued">0</div></div>
+      <div class="stat"><div class="k">Term checks</div><div class="v" id="wordSumChecked">0</div></div>
+      <div class="stat"><div class="k">Matches</div><div class="v" id="wordSumFindings">0</div></div>
+      <div class="stat"><div class="k">New vs last run</div><div class="v" id="wordSumNew">0</div></div>
+      <div class="stat"><div class="k">Skipped</div><div class="v" id="wordSumSkipped">0</div></div>
+      <div class="stat"><div class="k">Errors</div><div class="v" id="wordSumErrors">0</div></div>
+    </div>
+
+    <div class="section-title">Word search results</div>
+    <div id="wordResults" class="results"><div class="empty">No results yet.</div></div>
+
+    <details class="log-panel">
+      <summary class="log-head">Word search log</summary>
+      <div id="wordLog" class="log"></div>
+    </details>
+  </div>
+
+  <!-- ============ Missing Image Scanner ============ -->
+  <div id="imagesPanel" class="tab-panel">
+    <div class="card">
+      <div class="card-body">
+        <div class="field">
+          <label for="imageStart">Start URL</label>
+          <input id="imageStart" type="text" placeholder="https://example.com/" />
+          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
+        </div>
+        <details class="more-options">
+          <summary>Advanced options</summary>
+          <div class="more-options-body">
+            <div class="field">
+              <label for="imageIgnorePatterns">Ignore image URL patterns</label>
+              <textarea id="imageIgnorePatterns"></textarea>
+              <div class="help">Optional. One pattern per line. Matching image URLs are skipped.</div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="includeCssImages" checked />
+              <div><strong>Include inline CSS background images</strong></div>
+            </div>
+            <div class="check-item">
+              <input type="checkbox" id="includeMetaImages" checked />
+              <div><strong>Include meta/link images</strong><div class="sub">og:image, twitter:image, icons, preload images.</div></div>
+            </div>
+            <div class="check-item" style="margin-bottom:0;">
+              <input type="checkbox" id="imageSkipRedirectedPages" checked />
+              <div><strong>Skip image checks on redirected page URLs</strong><div class="sub">Recommended: redirected pages are logged and skipped, while the final same-origin URL is queued back into the crawl when possible.</div></div>
+            </div>
+          </div>
+        </details>
+        <div class="toolbar" style="margin-top:14px;">
+          <button id="imageScanBtn">Start image scan</button>
+          <button id="imageStopBtn" class="secondary">Stop image scan</button>
+          <button id="imageExportBtn" class="ghost">Download CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="imageStatus" class="status">Ready</div>
+
+    <div class="section-title">Image scan summary</div>
+    <div class="summary-grid">
+      <div class="stat"><div class="k">Status</div><div class="v" id="imageSumStatus">Ready</div></div>
+      <div class="stat"><div class="k">Duration</div><div class="v" id="imageSumDuration">0s</div></div>
+      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="imageSumPages">0</div></div>
+      <div class="stat"><div class="k">Queued</div><div class="v" id="imageSumQueued">0</div></div>
+      <div class="stat"><div class="k">Images checked</div><div class="v" id="imageSumChecked">0</div></div>
+      <div class="stat"><div class="k">Missing</div><div class="v" id="imageSumFindings">0</div></div>
+      <div class="stat"><div class="k">Redirects</div><div class="v" id="imageSumRedirected">0</div></div>
+      <div class="stat"><div class="k">New vs last run</div><div class="v" id="imageSumNew">0</div></div>
+      <div class="stat"><div class="k">Skipped</div><div class="v" id="imageSumSkipped">0</div></div>
+      <div class="stat"><div class="k">Errors</div><div class="v" id="imageSumErrors">0</div></div>
+    </div>
+
+    <div class="section-title">Missing image results</div>
+    <div id="imageResults" class="results"><div class="empty">No results yet.</div></div>
+
+    <details class="log-panel">
+      <summary class="log-head">Image scanner log</summary>
+      <div id="imageLog" class="log"></div>
+    </details>
   </div>
 
   <!-- ============ Lower Environment Link Scanner ============ -->
@@ -393,10 +738,10 @@
     <div class="section-title">Lower environment link results</div>
     <div id="lowerResults" class="results"><div class="empty">No results yet.</div></div>
 
-    <div class="log-panel">
-      <div class="log-head">Link scanner log</div>
+    <details class="log-panel">
+      <summary class="log-head">Link scanner log</summary>
       <div id="lowerLog" class="log"></div>
-    </div>
+    </details>
   </div>
 
   <!-- ============ Broken Link Scanner ============ -->
@@ -438,69 +783,10 @@
     <div class="section-title">Broken link results</div>
     <div id="linkResults" class="results"><div class="empty">No results yet.</div></div>
 
-    <div class="log-panel">
-      <div class="log-head">Broken link scanner log</div>
+    <details class="log-panel">
+      <summary class="log-head">Broken link scanner log</summary>
       <div id="linkLog" class="log"></div>
-    </div>
-  </div>
-
-  <!-- ============ Missing Image Scanner ============ -->
-  <div id="imagesPanel" class="tab-panel">
-    <div class="card">
-      <div class="card-body">
-        <div class="field">
-          <label for="imageStart">Start URL</label>
-          <input id="imageStart" type="text" placeholder="https://example.com/" />
-          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
-        </div>
-        <div class="field">
-          <label for="imageIgnorePatterns">Ignore image URL patterns</label>
-          <textarea id="imageIgnorePatterns"></textarea>
-          <div class="help">Optional. One pattern per line. Matching image URLs are skipped.</div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="includeCssImages" checked />
-          <div><strong>Include inline CSS background images</strong></div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="includeMetaImages" checked />
-          <div><strong>Include meta/link images</strong><div class="sub">og:image, twitter:image, icons, preload images.</div></div>
-        </div>
-        <div class="check-item" style="margin-bottom:0;">
-          <input type="checkbox" id="imageSkipRedirectedPages" checked />
-          <div><strong>Skip image checks on redirected page URLs</strong><div class="sub">Recommended: redirected pages are logged and skipped, while the final same-origin URL is queued back into the crawl when possible.</div></div>
-        </div>
-        <div class="toolbar" style="margin-top:14px;">
-          <button id="imageScanBtn">Start image scan</button>
-          <button id="imageStopBtn" class="secondary">Stop image scan</button>
-          <button id="imageExportBtn" class="ghost">Download CSV</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="imageStatus" class="status">Ready</div>
-
-    <div class="section-title">Image scan summary</div>
-    <div class="summary-grid">
-      <div class="stat"><div class="k">Status</div><div class="v" id="imageSumStatus">Ready</div></div>
-      <div class="stat"><div class="k">Duration</div><div class="v" id="imageSumDuration">0s</div></div>
-      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="imageSumPages">0</div></div>
-      <div class="stat"><div class="k">Queued</div><div class="v" id="imageSumQueued">0</div></div>
-      <div class="stat"><div class="k">Images checked</div><div class="v" id="imageSumChecked">0</div></div>
-      <div class="stat"><div class="k">Missing</div><div class="v" id="imageSumFindings">0</div></div>
-      <div class="stat"><div class="k">Redirects</div><div class="v" id="imageSumRedirected">0</div></div>
-      <div class="stat"><div class="k">New vs last run</div><div class="v" id="imageSumNew">0</div></div>
-      <div class="stat"><div class="k">Skipped</div><div class="v" id="imageSumSkipped">0</div></div>
-      <div class="stat"><div class="k">Errors</div><div class="v" id="imageSumErrors">0</div></div>
-    </div>
-
-    <div class="section-title">Missing image results</div>
-    <div id="imageResults" class="results"><div class="empty">No results yet.</div></div>
-
-    <div class="log-panel">
-      <div class="log-head">Image scanner log</div>
-      <div id="imageLog" class="log"></div>
-    </div>
+    </details>
   </div>
 
   <!-- ============ Mixed Content Scanner ============ -->
@@ -538,82 +824,72 @@
     <div class="section-title">Mixed content results</div>
     <div id="mixedResults" class="results"><div class="empty">No results yet.</div></div>
 
-    <div class="log-panel">
-      <div class="log-head">Mixed content scanner log</div>
+    <details class="log-panel">
+      <summary class="log-head">Mixed content scanner log</summary>
       <div id="mixedLog" class="log"></div>
-    </div>
+    </details>
   </div>
 
-  <!-- ============ Spell Checker ============ -->
-  <div id="spellPanel" class="tab-panel">
+  <!-- ============ Console Error Capture ============ -->
+  <div id="consolePanel" class="tab-panel">
     <div class="card">
       <div class="card-body">
-        <div class="field">
-          <label for="spellStart">Start URL</label>
-          <input id="spellStart" type="text" placeholder="https://example.com/" />
-          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
-        </div>
-        <div class="field">
-          <label for="spellIgnoreWords">Approved / ignored words</label>
-          <textarea id="spellIgnoreWords"></textarea>
-          <div class="help">One word per line. Use for brand terms, product names, acronyms, locations, and intentional copy the scanner should not report.</div>
+        <div class="note" style="margin-top:0;">A scan, not a live monitor: drives one of your open tabs through same-origin pages one at a time (reload, then watch for a fixed window), catching uncaught exceptions, unhandled promise rejections, and console.error/console.warn calls — including page-init/tag-manager errors, since the hook is in place before each page's own scripts run. Your browser tab will visibly navigate through the site while this runs; don't use it for anything else until the scan finishes or you click Stop. It does not catch browser-native "failed to load resource" network log lines (use Broken Links/Missing Images for those) or anything logged inside a cross-origin iframe (chat widgets, ad tags, etc. — those have their own isolated console). The same message repeating back-to-back on one page collapses into one entry with a repeat count.</div>
+        <div class="field" style="margin-top:14px;">
+          <label for="consoleTabSelect">Target tab</label>
+          <div class="grid-2">
+            <select id="consoleTabSelect"></select>
+            <button id="consoleRefreshTabsBtn" class="ghost" type="button">Refresh tab list</button>
+          </div>
+          <div class="help">The tab the scan will drive. Defaults to the tab this scanner was opened from, if any.</div>
         </div>
         <div class="grid-2">
           <div class="field">
-            <label for="spellMinLength">Minimum word length</label>
-            <input id="spellMinLength" type="number" min="2" max="20" step="1" value="4" />
+            <label for="consoleMaxPages">Max pages</label>
+            <input id="consoleMaxPages" type="number" min="1" max="300" step="1" value="20" />
+            <div class="help">Each page takes at least "Seconds per page" to scan, so keep this modest — 20 pages at 10s each is already ~3-4 minutes.</div>
           </div>
           <div class="field">
-            <label for="spellMaxFindings">Max spell findings</label>
-            <input id="spellMaxFindings" type="number" min="25" max="5000" step="25" value="300" />
+            <label for="consoleSecondsPerPage">Seconds per page</label>
+            <input id="consoleSecondsPerPage" type="number" min="3" max="60" step="1" value="10" />
+            <div class="help">How long to watch each page after it loads before moving to the next.</div>
           </div>
         </div>
-        <div class="check-item">
-          <input type="checkbox" id="spellFlagUnknown" />
-          <div><strong>Also flag unknown words as review candidates</strong><div class="sub">Browser-only spell checking cannot use Chrome's private dictionary, so this mode is intentionally noisy.</div></div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="spellMainContentOnly" checked />
-          <div><strong>Prefer main article/content text when available</strong></div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="spellSkipDataText" checked />
-          <div><strong>Ignore JSON, keyword arrays, and data blobs</strong></div>
-        </div>
-        <div class="check-item" style="margin-bottom:0;">
-          <input type="checkbox" id="spellIncludeMetaText" checked />
-          <div><strong>Include title, meta description, alt text, title text, and aria-labels</strong></div>
+        <div class="field">
+          <label for="consoleMaxFindings">Max captured events</label>
+          <input id="consoleMaxFindings" type="number" min="25" max="5000" step="25" value="300" />
+          <div class="help">Scan auto-stops once this many distinct events are captured, so a noisy site can't grow the results list without bound. Repeats of the same message don't count against this.</div>
         </div>
         <div class="toolbar" style="margin-top:14px;">
-          <button id="spellScanBtn">Start spell check</button>
-          <button id="spellStopBtn" class="secondary">Stop spell check</button>
-          <button id="spellExportBtn" class="ghost">Download CSV</button>
+          <button id="consoleStartBtn">Start console scan</button>
+          <button id="consoleStopBtn" class="secondary">Stop scan</button>
+          <button id="consoleClearBtn" class="secondary">Clear results</button>
+          <button id="consoleExportBtn" class="ghost">Download CSV</button>
         </div>
       </div>
     </div>
 
-    <div id="spellStatus" class="status">Ready</div>
+    <div id="consoleStatus" class="status">Ready</div>
 
-    <div class="section-title">Spell check summary</div>
+    <div class="section-title">Console scan summary</div>
     <div class="summary-grid">
-      <div class="stat"><div class="k">Status</div><div class="v" id="spellSumStatus">Ready</div></div>
-      <div class="stat"><div class="k">Duration</div><div class="v" id="spellSumDuration">0s</div></div>
-      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="spellSumPages">0</div></div>
-      <div class="stat"><div class="k">Queued</div><div class="v" id="spellSumQueued">0</div></div>
-      <div class="stat"><div class="k">Words checked</div><div class="v" id="spellSumChecked">0</div></div>
-      <div class="stat"><div class="k">Findings</div><div class="v" id="spellSumFindings">0</div></div>
-      <div class="stat"><div class="k">New vs last run</div><div class="v" id="spellSumNew">0</div></div>
-      <div class="stat"><div class="k">Skipped</div><div class="v" id="spellSumSkipped">0</div></div>
-      <div class="stat"><div class="k">Errors</div><div class="v" id="spellSumErrors">0</div></div>
+      <div class="stat"><div class="k">Status</div><div class="v" id="consoleSumStatus">Ready</div></div>
+      <div class="stat"><div class="k">Duration</div><div class="v" id="consoleSumDuration">0s</div></div>
+      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="consoleSumPages">0</div></div>
+      <div class="stat"><div class="k">Queued</div><div class="v" id="consoleSumQueued">0</div></div>
+      <div class="stat"><div class="k">Total events</div><div class="v" id="consoleSumEvents">0</div></div>
+      <div class="stat"><div class="k">Exceptions</div><div class="v" id="consoleSumErrors">0</div></div>
+      <div class="stat"><div class="k">Warnings</div><div class="v" id="consoleSumWarnings">0</div></div>
+      <div class="stat"><div class="k">Unhandled rejections</div><div class="v" id="consoleSumRejections">0</div></div>
     </div>
 
-    <div class="section-title">Spell check results</div>
-    <div id="spellResults" class="results"><div class="empty">No results yet.</div></div>
+    <div class="section-title">Captured events &amp; recommendations</div>
+    <div id="consoleResults" class="results"><div class="empty">No events captured yet.</div></div>
 
-    <div class="log-panel">
-      <div class="log-head">Spell checker log</div>
-      <div id="spellLog" class="log"></div>
-    </div>
+    <details class="log-panel">
+      <summary class="log-head">Console scan log</summary>
+      <div id="consoleLog" class="log"></div>
+    </details>
   </div>
 
   <!-- ============ Page Audit ============ -->
@@ -667,77 +943,12 @@
     <div class="section-title">Page audit results</div>
     <div id="auditResults" class="results"><div class="empty">No results yet.</div></div>
 
-    <div class="log-panel">
-      <div class="log-head">Page audit log</div>
+    <details class="log-panel">
+      <summary class="log-head">Page audit log</summary>
       <div id="auditLog" class="log"></div>
-    </div>
+    </details>
   </div>
 
-  <!-- ============ Word Search ============ -->
-  <div id="wordPanel" class="tab-panel">
-    <div class="card">
-      <div class="card-body">
-        <div class="field">
-          <label for="wordStart">Start URL</label>
-          <input id="wordStart" type="text" placeholder="https://example.com/" />
-          <div class="help">Any http(s) URL. Crawl stays on this origin.</div>
-        </div>
-        <div class="field">
-          <label for="wordTerms">Words / phrases to search</label>
-          <textarea id="wordTerms"></textarea>
-          <div class="help">One word or phrase per line. Searches visible page copy and reports page/source/context matches.</div>
-        </div>
-        <div class="field">
-          <label for="wordMaxFindings">Max word search findings</label>
-          <input id="wordMaxFindings" type="number" min="25" max="5000" step="25" value="500" />
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="wordCaseSensitive" />
-          <div><strong>Case-sensitive search</strong></div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="wordWholeWord" checked />
-          <div><strong>Match whole words for single-word searches</strong></div>
-        </div>
-        <div class="check-item">
-          <input type="checkbox" id="wordMainContentOnly" checked />
-          <div><strong>Prefer main article/content text when available</strong></div>
-        </div>
-        <div class="check-item" style="margin-bottom:0;">
-          <input type="checkbox" id="wordIncludeMetaText" checked />
-          <div><strong>Include title, meta description, alt text, title text, and aria-labels</strong></div>
-        </div>
-        <div class="toolbar" style="margin-top:14px;">
-          <button id="wordScanBtn">Start word search</button>
-          <button id="wordStopBtn" class="secondary">Stop word search</button>
-          <button id="wordExportBtn" class="ghost">Download CSV</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="wordStatus" class="status">Ready</div>
-
-    <div class="section-title">Word search summary</div>
-    <div class="summary-grid">
-      <div class="stat"><div class="k">Status</div><div class="v" id="wordSumStatus">Ready</div></div>
-      <div class="stat"><div class="k">Duration</div><div class="v" id="wordSumDuration">0s</div></div>
-      <div class="stat"><div class="k">Pages scanned</div><div class="v" id="wordSumPages">0</div></div>
-      <div class="stat"><div class="k">Queued</div><div class="v" id="wordSumQueued">0</div></div>
-      <div class="stat"><div class="k">Term checks</div><div class="v" id="wordSumChecked">0</div></div>
-      <div class="stat"><div class="k">Matches</div><div class="v" id="wordSumFindings">0</div></div>
-      <div class="stat"><div class="k">New vs last run</div><div class="v" id="wordSumNew">0</div></div>
-      <div class="stat"><div class="k">Skipped</div><div class="v" id="wordSumSkipped">0</div></div>
-      <div class="stat"><div class="k">Errors</div><div class="v" id="wordSumErrors">0</div></div>
-    </div>
-
-    <div class="section-title">Word search results</div>
-    <div id="wordResults" class="results"><div class="empty">No results yet.</div></div>
-
-    <div class="log-panel">
-      <div class="log-head">Word search log</div>
-      <div id="wordLog" class="log"></div>
-    </div>
-  </div>
 
 </div>
 

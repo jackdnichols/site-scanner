@@ -1,19 +1,22 @@
 # Site Scanner
 
-**Merged into ACG-State-Switcher as of 2026-08-14.** This engine (plus a fix
-for a query-param crawl-dedup bug, and a new Console Error Capture scanner)
-now lives in `ACG-State-Switcher/site-scanner.html`/`site-scanner.js`. This
-project is no longer separately developed; it's left here for history.
+**Actively developed in ACG-State-Switcher, mirrored back here.** This
+engine now lives primarily in `ACG-State-Switcher/site-scanner.html`/
+`site-scanner.js`, which is where new features and fixes land first. This
+copy (site-scanner.js/html, plus console-capture-main.js/relay.js) is kept
+in sync with that fork so this project stays independently usable — last
+synced 2026-08-26.
 
 ---
 
-Personal browser extension: point it at any website and run seven scanners
+Personal browser extension: point it at any website and run eight scanners
 against it — lower-environment link leaks, broken links, missing images,
-mixed content, spelling/typos, a basic SEO/accessibility page audit, and
-free-text word search. This is a standalone, general-purpose port of the
-Site Inspector tool from the ACG-State-Switcher extension: it has no
-knowledge of acg.aaa.com, meemic.com, or meemicfoundation.org, and no
-ACG-specific state-switching functionality.
+mixed content, spelling/typos, a basic SEO/accessibility page audit,
+free-text word search, and live Console Error Capture. This is a
+standalone, general-purpose port of the Site Inspector tool from the
+ACG-State-Switcher extension: it has no knowledge of acg.aaa.com,
+meemic.com, or meemicfoundation.org, and no ACG-specific state-switching
+functionality.
 
 ## Install (unpacked)
 
@@ -49,6 +52,15 @@ directly and type in any Start URL.
   with no associated label.
 - **Word Search** — searches page copy for a list of words/phrases you supply
   and reports where they show up.
+- **Console Error Capture** — attach to an open http(s) tab and watch its
+  console for JavaScript errors, warnings, and unhandled promise
+  rejections as they happen, with plain-English explanations and fix
+  suggestions for common patterns (load-order issues, CORS, CSP, vendor
+  tag failures, and more). Unlike the crawl-based scanners, this injects
+  directly into the tab you point it at (via `console-capture-main.js` in
+  the page's own `MAIN` world and `console-capture-relay.js` in the
+  isolated world), so it needs the `scripting` permission and sees that
+  tab's real console output — not what a logged-out fetch would see.
 
 Each scan can be run and stopped independently, or all at once with "Run
 all"/"Stop all" (Word Search only joins "Run all" once you've entered search
@@ -90,11 +102,3 @@ re-pasting config each time.
 - The Broken Links and Mixed Content scanners rely on the same cross-site
   fetch mechanism, so the same cookie caveat applies to link status checks.
 - Not published to any extension store; for personal/local use.
-
-## Not included
-
-Live-tab console/network error capture (catching JS errors and failed
-requests while you actively browse) was deliberately left out — it needs a
-content script injected on every page, or the `debugger` API, instead of
-the on-demand fetch-crawl this extension otherwise uses. Worth adding as a
-separate, explicit permission bump if you want it later.

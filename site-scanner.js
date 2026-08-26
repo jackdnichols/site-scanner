@@ -15,6 +15,23 @@
   "use strict";
 
   /* =========================
+     Theme (mirrors popup.js's Light/Dark/System switch)
+     ========================= */
+
+  function applyThemeMode(mode) {
+    document.documentElement.setAttribute("data-theme", mode === "light" || mode === "dark" ? mode : "system");
+  }
+
+  try {
+    chrome.storage.sync.get(["themeMode"], function (result) {
+      applyThemeMode(result && result.themeMode);
+    });
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area === "sync" && changes.themeMode) applyThemeMode(changes.themeMode.newValue);
+    });
+  } catch (e) { /* storage unavailable — falls back to prefers-color-scheme */ }
+
+  /* =========================
      Scan URL validation
      ========================= */
 
@@ -40,7 +57,12 @@
   var SPELL_YIELD_EVERY_WORDS = 200;
   var SPELL_DEFAULT_MAX_FINDINGS = 300;
   var WORD_DEFAULT_MAX_FINDINGS = 500;
-  var SPELL_TRACKING_PARAMS = {
+  var CONSOLE_DEFAULT_MAX_FINDINGS = 300;
+  var CONSOLE_SCAN_DEFAULT_MAX_PAGES = 20;
+  var CONSOLE_SCAN_HARD_MAX_PAGES = 300;
+  var CONSOLE_SCAN_DEFAULT_SECONDS_PER_PAGE = 10;
+  var CONSOLE_SCAN_NAV_TIMEOUT_MS = 20000;
+  var TRACKING_PARAMS = {
     cid: true, cmpid: true, gclid: true, fbclid: true, msclkid: true,
     campaign: true, source: true, medium: true, term: true, content: true
   };
@@ -217,6 +239,7 @@
     if (linkState.running) runningCount++;
     if (mixedState.running) runningCount++;
     if (auditState.running) runningCount++;
+    if (consoleState.running) runningCount++;
 
     setText("globalStatus", runningCount ? runningCount + " scan(s) running" : "Ready");
     setText("globalCacheCount", htmlPageCacheCount);
@@ -365,6 +388,31 @@
     }
   }
 
+  // Canonical page identity used to key crawl visited/queued sets and finding
+  // dedup across every scanner: strips the hash and known tracking params
+  // (utm_* plus TRACKING_PARAMS) so query-param variants of the same page
+  // (e.g. ?utm_source=...) collapse into one page instead of being re-crawled
+  // and reported as separate findings. Params that aren't known tracking
+  // noise (e.g. ?id=123) are left alone, since they can point at genuinely
+  // different content.
+  function canonicalizePageUrl(pageUrl) {
+    try {
+      var url = new URL(pageUrl);
+      url.hash = "";
+
+      Array.prototype.slice.call(url.searchParams.keys()).forEach(function (key) {
+        var lowerKey = key.toLowerCase();
+        if (lowerKey.indexOf("utm_") === 0 || TRACKING_PARAMS[lowerKey]) {
+          url.searchParams.delete(key);
+        }
+      });
+
+      return url.href;
+    } catch (e) {
+      return pageUrl;
+    }
+  }
+
   function isSameOrigin(url, origin) {
     try {
       return new URL(url).origin === origin;
@@ -412,7 +460,7 @@
   var TAB_PANEL_ID_OVERRIDES = { links: "link" };
 
   function setActiveTab(tabName) {
-    ["lower", "links", "images", "mixed", "spell", "audit", "word"].forEach(function (name) {
+    ["lower", "links", "images", "mixed", "spell", "audit", "word", "console"].forEach(function (name) {
       var btnId = "tab" + name.charAt(0).toUpperCase() + name.slice(1) + "Btn";
       var panelId = (TAB_PANEL_ID_OVERRIDES[name] || name) + "Panel";
       var active = name === tabName;
@@ -454,6 +502,15 @@
     } catch (e) { /* fall through to blank default */ }
 
     return "";
+  }
+
+  function getInitialTabId() {
+    try {
+      var requested = new URLSearchParams(window.location.search).get("tabId");
+      if (requested && /^\d+$/.test(requested)) return Number(requested);
+    } catch (e) { /* fall through to no default */ }
+
+    return null;
   }
 
   /* =========================
@@ -702,14 +759,15 @@
   }
 
   function addLowerResult(link, page, pattern) {
-    var key = link + "|" + page + "|" + pattern;
+    var canonicalPage = canonicalizePageUrl(page);
+    var key = link + "|" + canonicalPage + "|" + pattern;
     if (lowerFindingKeys[key]) return;
     lowerFindingKeys[key] = true;
 
     var isNew = !lowerHistorySet[key];
     if (isNew) lowerState.newCount++;
 
-    lowerFindings.push({ link: link, page: page, pattern: pattern });
+    lowerFindings.push({ link: link, page: page, canonicalPage: canonicalPage, pattern: pattern });
     lowerState.findings = lowerFindings.length;
     updateLowerSummary();
 
@@ -777,7 +835,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[firstUrl] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting lower environment link scan...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -788,16 +846,18 @@
         var lowerSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var lowerSitemapAdded = 0;
         lowerSitemapUrls.forEach(function (u) {
-          if (!queued[u] && !visited[u]) { queue.push(u); queued[u] = true; lowerSitemapAdded++; }
+          var uKey = canonicalizePageUrl(u);
+          if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; lowerSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + lowerSitemapAdded + " URL(s) into the queue.");
       }
 
       while (queue.length && !lowerState.stop) {
         var url = queue.shift();
-        if (!url || visited[url]) continue;
+        var lowerUrlKey = canonicalizePageUrl(url);
+        if (!url || visited[lowerUrlKey]) continue;
 
-        visited[url] = true;
+        visited[lowerUrlKey] = true;
         lowerState.pagesScanned = Object.keys(visited).length;
         lowerState.queued = queue.length;
 
@@ -827,9 +887,10 @@
           });
 
           links.forEach(function (link) {
-            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[link] && !queued[link]) {
+            var lowerLinkKey = canonicalizePageUrl(link);
+            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[lowerLinkKey] && !queued[lowerLinkKey]) {
               queue.push(link);
-              queued[link] = true;
+              queued[lowerLinkKey] = true;
             }
           });
 
@@ -1029,14 +1090,15 @@
   }
 
   function addImageResult(imageUrl, pageUrl, source, reason) {
-    var key = imageUrl + "|" + pageUrl + "|" + source + "|" + reason;
+    var canonicalPageUrl = canonicalizePageUrl(pageUrl);
+    var key = imageUrl + "|" + canonicalPageUrl + "|" + source + "|" + reason;
     if (imageFindingKeys[key]) return;
     imageFindingKeys[key] = true;
 
     var isNew = !imageHistorySet[key];
     if (isNew) imageState.newCount++;
 
-    imageFindings.push({ imageUrl: imageUrl, pageUrl: pageUrl, source: source, reason: reason });
+    imageFindings.push({ imageUrl: imageUrl, pageUrl: pageUrl, canonicalPageUrl: canonicalPageUrl, source: source, reason: reason });
     imageState.findings = imageFindings.length;
     updateImageSummary();
 
@@ -1116,7 +1178,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[firstUrl] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting missing image scan...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -1127,16 +1189,18 @@
         var imageSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var imageSitemapAdded = 0;
         imageSitemapUrls.forEach(function (u) {
-          if (!queued[u] && !visited[u]) { queue.push(u); queued[u] = true; imageSitemapAdded++; }
+          var uKey = canonicalizePageUrl(u);
+          if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; imageSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + imageSitemapAdded + " URL(s) into the queue.");
       }
 
       while (queue.length && !imageState.stop) {
         var url = queue.shift();
-        if (!url || visited[url]) continue;
+        var imageUrlKey = canonicalizePageUrl(url);
+        if (!url || visited[imageUrlKey]) continue;
 
-        visited[url] = true;
+        visited[imageUrlKey] = true;
         imageState.pagesScanned = Object.keys(visited).length;
         imageState.queued = queue.length;
 
@@ -1161,9 +1225,10 @@
             imageState.redirected++;
             logTo(logEl, "REDIRECT: " + url + " -> " + effectivePageUrl);
 
-            if (isSameOrigin(effectivePageUrl, origin) && isScannableUrl(effectivePageUrl) && isLikelyHtmlPage(effectivePageUrl) && !visited[effectivePageUrl] && !queued[effectivePageUrl]) {
+            var effectivePageUrlKey = canonicalizePageUrl(effectivePageUrl);
+            if (isSameOrigin(effectivePageUrl, origin) && isScannableUrl(effectivePageUrl) && isLikelyHtmlPage(effectivePageUrl) && !visited[effectivePageUrlKey] && !queued[effectivePageUrlKey]) {
               queue.push(effectivePageUrl);
-              queued[effectivePageUrl] = true;
+              queued[effectivePageUrlKey] = true;
               logTo(logEl, "Queued final redirected URL: " + effectivePageUrl);
             }
 
@@ -1211,9 +1276,10 @@
 
             var links = extractPageLinks(doc, effectivePageUrl);
             links.forEach(function (link) {
-              if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[link] && !queued[link]) {
+              var imageLinkKey = canonicalizePageUrl(link);
+              if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[imageLinkKey] && !queued[imageLinkKey]) {
                 queue.push(link);
-                queued[link] = true;
+                queued[imageLinkKey] = true;
               }
             });
           }
@@ -1379,24 +1445,6 @@
       .replace(/&[a-z]+;/gi, " ");
   }
 
-  function canonicalizeSpellPageUrl(pageUrl) {
-    try {
-      var url = new URL(pageUrl);
-      url.hash = "";
-
-      Array.prototype.slice.call(url.searchParams.keys()).forEach(function (key) {
-        var lowerKey = key.toLowerCase();
-        if (lowerKey.indexOf("utm_") === 0 || SPELL_TRACKING_PARAMS[lowerKey]) {
-          url.searchParams.delete(key);
-        }
-      });
-
-      return url.href;
-    } catch (e) {
-      return pageUrl;
-    }
-  }
-
   function getSpellContextWindow(text, index, length) {
     var start = Math.max(0, index - SPELL_DATA_CONTEXT_CHARS);
     var end = Math.min(text.length, index + length + SPELL_DATA_CONTEXT_CHARS);
@@ -1436,10 +1484,11 @@
     ) || doc.body;
   }
 
-  function removeSpellNoise(root) {
-    Array.prototype.slice.call(root.querySelectorAll(
-      "script,style,noscript,template,svg,canvas,iframe,code,pre,nav,footer,header,form,button,select,option,input,textarea,[hidden],[aria-hidden='true']"
-    )).forEach(function (el) {
+  function removeSpellNoise(root, options) {
+    var selector = "script,style,noscript,template,svg,canvas,iframe,code,pre,nav,footer,header,select,option,input,textarea,[hidden],[aria-hidden='true']";
+    if (!options || !options.includeButtonText) selector += ",button";
+
+    Array.prototype.slice.call(root.querySelectorAll(selector)).forEach(function (el) {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
   }
@@ -1449,7 +1498,7 @@
     var rootSource = options.mainContentOnly ? findSpellContentRoot(doc) : doc.body;
     var clone = rootSource ? rootSource.cloneNode(true) : doc.cloneNode(true);
 
-    removeSpellNoise(clone);
+    removeSpellNoise(clone, options);
 
     if (clone && clone.textContent) {
       chunks.push({
@@ -1488,7 +1537,7 @@
   }
 
   function addSpellResult(word, pageUrl, source, reason, suggestion, context) {
-    var canonicalPageUrl = canonicalizeSpellPageUrl(pageUrl);
+    var canonicalPageUrl = canonicalizePageUrl(pageUrl);
     var confidence = reason === "Known typo" ? "High" : "Review";
     var key = word.toLowerCase() + "|" + canonicalPageUrl + "|" + source + "|" + reason;
 
@@ -1627,6 +1676,7 @@
         flagUnknown: byId("spellFlagUnknown").checked,
         includeMetaText: byId("spellIncludeMetaText").checked,
         mainContentOnly: byId("spellMainContentOnly").checked,
+        includeButtonText: byId("spellIncludeButtonText").checked,
         skipDataText: byId("spellSkipDataText").checked,
         minLength: getSpellMinLength(),
         maxFindings: getSpellMaxFindings()
@@ -1639,7 +1689,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[canonicalizeSpellPageUrl(firstUrl)] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting spell check scan...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -1653,7 +1703,7 @@
         var spellSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var spellSitemapAdded = 0;
         spellSitemapUrls.forEach(function (u) {
-          var uKey = canonicalizeSpellPageUrl(u);
+          var uKey = canonicalizePageUrl(u);
           if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; spellSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + spellSitemapAdded + " URL(s) into the queue.");
@@ -1661,7 +1711,7 @@
 
       while (queue.length && !spellState.stop) {
         var url = queue.shift();
-        var spellUrlKey = canonicalizeSpellPageUrl(url);
+        var spellUrlKey = canonicalizePageUrl(url);
         if (!url || visited[spellUrlKey]) continue;
 
         visited[spellUrlKey] = true;
@@ -1694,7 +1744,7 @@
 
           var links = extractPageLinks(doc, url);
           links.forEach(function (link) {
-            var linkKey = canonicalizeSpellPageUrl(link);
+            var linkKey = canonicalizePageUrl(link);
             if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[linkKey] && !queued[linkKey]) {
               queue.push(link);
               queued[linkKey] = true;
@@ -1775,7 +1825,7 @@
   }
 
   function addWordResult(term, matchText, pageUrl, source, context) {
-    var canonicalPageUrl = canonicalizeSpellPageUrl(pageUrl);
+    var canonicalPageUrl = canonicalizePageUrl(pageUrl);
     var key = term.toLowerCase() + "|" + matchText.toLowerCase() + "|" + canonicalPageUrl + "|" + source + "|" + context;
 
     if (wordFindingKeys[key]) return;
@@ -1886,6 +1936,7 @@
         wholeWord: byId("wordWholeWord").checked,
         includeMetaText: byId("wordIncludeMetaText").checked,
         mainContentOnly: byId("wordMainContentOnly").checked,
+        includeButtonText: byId("wordIncludeButtonText").checked,
         maxFindings: getWordMaxFindings()
       };
 
@@ -1896,7 +1947,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[canonicalizeSpellPageUrl(firstUrl)] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(byId("wordLog"), "Starting word search scan...");
       logTo(byId("wordLog"), "Crawling origin only: " + origin);
@@ -1908,7 +1959,7 @@
         var wordSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var wordSitemapAdded = 0;
         wordSitemapUrls.forEach(function (u) {
-          var uKey = canonicalizeSpellPageUrl(u);
+          var uKey = canonicalizePageUrl(u);
           if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; wordSitemapAdded++; }
         });
         logTo(byId("wordLog"), "Sitemap seeded " + wordSitemapAdded + " URL(s) into the queue.");
@@ -1916,7 +1967,7 @@
 
       while (queue.length && !wordState.stop) {
         var url = queue.shift();
-        var urlKey = canonicalizeSpellPageUrl(url);
+        var urlKey = canonicalizePageUrl(url);
         if (!url || visited[urlKey]) continue;
 
         visited[urlKey] = true;
@@ -1938,7 +1989,8 @@
           var doc = new DOMParser().parseFromString(page.text, "text/html");
           var chunks = collectSpellTextChunks(doc, url, {
             mainContentOnly: options.mainContentOnly,
-            includeMetaText: options.includeMetaText
+            includeMetaText: options.includeMetaText,
+            includeButtonText: options.includeButtonText
           });
           logTo(byId("wordLog"), "Text chunks found on page: " + chunks.length);
 
@@ -1949,7 +2001,7 @@
           }
 
           extractPageLinks(doc, url).forEach(function (link) {
-            var linkKey = canonicalizeSpellPageUrl(link);
+            var linkKey = canonicalizePageUrl(link);
             if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[linkKey] && !queued[linkKey]) {
               queue.push(link);
               queued[linkKey] = true;
@@ -2071,14 +2123,15 @@
   }
 
   function addLinkResult(link, page, reason) {
-    var key = link + "|" + page + "|" + reason;
+    var canonicalPage = canonicalizePageUrl(page);
+    var key = link + "|" + canonicalPage + "|" + reason;
     if (linkFindingKeys[key]) return;
     linkFindingKeys[key] = true;
 
     var isNew = !linkHistorySet[key];
     if (isNew) linkState.newCount++;
 
-    linkFindings.push({ link: link, page: page, reason: reason });
+    linkFindings.push({ link: link, page: page, canonicalPage: canonicalPage, reason: reason });
     linkState.findings = linkFindings.length;
     updateLinkSummary();
 
@@ -2183,7 +2236,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[firstUrl] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting broken link scan...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -2195,16 +2248,18 @@
         var linkSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var linkSitemapAdded = 0;
         linkSitemapUrls.forEach(function (u) {
-          if (!queued[u] && !visited[u]) { queue.push(u); queued[u] = true; linkSitemapAdded++; }
+          var uKey = canonicalizePageUrl(u);
+          if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; linkSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + linkSitemapAdded + " URL(s) into the queue.");
       }
 
       while (queue.length && !linkState.stop) {
         var url = queue.shift();
-        if (!url || visited[url]) continue;
+        var linkUrlKey = canonicalizePageUrl(url);
+        if (!url || visited[linkUrlKey]) continue;
 
-        visited[url] = true;
+        visited[linkUrlKey] = true;
         linkState.pagesScanned = Object.keys(visited).length;
         linkState.queued = queue.length;
 
@@ -2238,9 +2293,10 @@
 
           var crawlLinks = extractPageLinks(doc, url);
           crawlLinks.forEach(function (link) {
-            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[link] && !queued[link]) {
+            var crawlLinkKey = canonicalizePageUrl(link);
+            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[crawlLinkKey] && !queued[crawlLinkKey]) {
               queue.push(link);
-              queued[link] = true;
+              queued[crawlLinkKey] = true;
             }
           });
 
@@ -2311,14 +2367,15 @@
   }
 
   function addMixedResult(resourceUrl, pageUrl, source) {
-    var key = resourceUrl + "|" + pageUrl + "|" + source;
+    var canonicalPageUrl = canonicalizePageUrl(pageUrl);
+    var key = resourceUrl + "|" + canonicalPageUrl + "|" + source;
     if (mixedFindingKeys[key]) return;
     mixedFindingKeys[key] = true;
 
     var isNew = !mixedHistorySet[key];
     if (isNew) mixedState.newCount++;
 
-    mixedFindings.push({ resourceUrl: resourceUrl, pageUrl: pageUrl, source: source });
+    mixedFindings.push({ resourceUrl: resourceUrl, pageUrl: pageUrl, canonicalPageUrl: canonicalPageUrl, source: source });
     mixedState.findings = mixedFindings.length;
     updateMixedSummary();
 
@@ -2383,7 +2440,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[firstUrl] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting mixed content scan...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -2394,16 +2451,18 @@
         var mixedSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var mixedSitemapAdded = 0;
         mixedSitemapUrls.forEach(function (u) {
-          if (!queued[u] && !visited[u]) { queue.push(u); queued[u] = true; mixedSitemapAdded++; }
+          var uKey = canonicalizePageUrl(u);
+          if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; mixedSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + mixedSitemapAdded + " URL(s) into the queue.");
       }
 
       while (queue.length && !mixedState.stop) {
         var url = queue.shift();
-        if (!url || visited[url]) continue;
+        var mixedUrlKey = canonicalizePageUrl(url);
+        if (!url || visited[mixedUrlKey]) continue;
 
-        visited[url] = true;
+        visited[mixedUrlKey] = true;
         mixedState.pagesScanned = Object.keys(visited).length;
         mixedState.queued = queue.length;
 
@@ -2433,9 +2492,10 @@
 
           var links = extractPageLinks(doc, url);
           links.forEach(function (link) {
-            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[link] && !queued[link]) {
+            var mixedLinkKey = canonicalizePageUrl(link);
+            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[mixedLinkKey] && !queued[mixedLinkKey]) {
               queue.push(link);
-              queued[link] = true;
+              queued[mixedLinkKey] = true;
             }
           });
 
@@ -2477,7 +2537,7 @@
     } else {
       var titleKey = title.toLowerCase();
       if (!titleGroups[titleKey]) titleGroups[titleKey] = [];
-      titleGroups[titleKey].push(pageUrl);
+      titleGroups[titleKey].push(canonicalizePageUrl(pageUrl));
     }
 
     var metaDesc = doc.querySelector("meta[name='description']");
@@ -2488,7 +2548,7 @@
     } else {
       var descKey = descValue.toLowerCase();
       if (!descGroups[descKey]) descGroups[descKey] = [];
-      descGroups[descKey].push(pageUrl);
+      descGroups[descKey].push(canonicalizePageUrl(pageUrl));
     }
   }
 
@@ -2542,14 +2602,15 @@
   }
 
   function addAuditResult(pageUrl, issue, detail, source) {
-    var key = pageUrl + "|" + issue + "|" + detail + "|" + source;
+    var canonicalPageUrl = canonicalizePageUrl(pageUrl);
+    var key = canonicalPageUrl + "|" + issue + "|" + detail + "|" + source;
     if (auditFindingKeys[key]) return;
     auditFindingKeys[key] = true;
 
     var isNew = !auditHistorySet[key];
     if (isNew) auditState.newCount++;
 
-    auditFindings.push({ pageUrl: pageUrl, issue: issue, detail: detail, source: source });
+    auditFindings.push({ pageUrl: pageUrl, canonicalPageUrl: canonicalPageUrl, issue: issue, detail: detail, source: source });
     auditState.findings = auditFindings.length;
     updateAuditSummary();
 
@@ -2628,7 +2689,7 @@
       var queue = [firstUrl];
       var visited = {};
       var queued = {};
-      queued[firstUrl] = true;
+      queued[canonicalizePageUrl(firstUrl)] = true;
 
       logTo(logEl, "Starting page audit...");
       logTo(logEl, "Crawling origin only: " + origin);
@@ -2639,16 +2700,18 @@
         var auditSitemapUrls = await fetchSitemapSameOriginUrls(origin);
         var auditSitemapAdded = 0;
         auditSitemapUrls.forEach(function (u) {
-          if (!queued[u] && !visited[u]) { queue.push(u); queued[u] = true; auditSitemapAdded++; }
+          var uKey = canonicalizePageUrl(u);
+          if (!queued[uKey] && !visited[uKey]) { queue.push(u); queued[uKey] = true; auditSitemapAdded++; }
         });
         logTo(logEl, "Sitemap seeded " + auditSitemapAdded + " URL(s) into the queue.");
       }
 
       while (queue.length && !auditState.stop) {
         var url = queue.shift();
-        if (!url || visited[url]) continue;
+        var auditUrlKey = canonicalizePageUrl(url);
+        if (!url || visited[auditUrlKey]) continue;
 
-        visited[url] = true;
+        visited[auditUrlKey] = true;
         auditState.pagesScanned = Object.keys(visited).length;
         auditState.queued = queue.length;
 
@@ -2674,9 +2737,10 @@
 
           var links = extractPageLinks(doc, url);
           links.forEach(function (link) {
-            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[link] && !queued[link]) {
+            var auditLinkKey = canonicalizePageUrl(link);
+            if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[auditLinkKey] && !queued[auditLinkKey]) {
               queue.push(link);
-              queued[link] = true;
+              queued[auditLinkKey] = true;
             }
           });
 
@@ -2844,6 +2908,567 @@
   }
 
   /* =========================
+     Console Error Capture
+     ========================= */
+
+  var CONSOLE_ERROR_RULES = [
+    {
+      test: function (msg) { return /is not defined/i.test(msg); },
+      title: "Reference to an undefined variable/function",
+      recommendation: "A script referenced a global before it existed. Check script load order — if this is a well-known global like $/jQuery, utag/_satellite (Tealium), or dataLayer, confirm that library's <script> tag runs (and finishes loading) before this one, and that nothing is blocking it (ad blocker, CSP, 404)."
+    },
+    {
+      test: function (msg) { return /cannot read propert(y|ies) of (null|undefined)/i.test(msg); },
+      title: "Reading a property of null/undefined",
+      recommendation: "Something expected to already exist wasn't there yet — often a DOM element queried before it's rendered, or an API/analytics response with an unexpected shape. Add a null-check, or move the code to run after DOMContentLoaded / after the data actually resolves."
+    },
+    {
+      test: function (msg) { return /(cors|cross-origin request blocked|failed to fetch|networkerror)/i.test(msg); },
+      title: "CORS or network failure",
+      recommendation: "The request was blocked cross-origin or failed at the network layer. The target server needs an Access-Control-Allow-Origin header for this origin, or the request needs to go through a same-origin proxy. If this isn't CORS-specific, check for a plain connectivity/DNS/timeout issue."
+    },
+    {
+      test: function (msg) { return /content security policy|refused to (load|execute|connect|frame)/i.test(msg); },
+      title: "Blocked by Content Security Policy",
+      recommendation: "The page's CSP header is blocking this script/resource/connection. Add the resource's origin to the relevant CSP directive (script-src, connect-src, frame-src, etc.), or serve the script with the page's nonce/hash if one is in use."
+    },
+    {
+      test: function (msg) { return /unhandled promise rejection|uncaught \(in promise\)/i.test(msg); },
+      title: "Unhandled promise rejection",
+      recommendation: "A promise rejected with nothing to catch it. Add a .catch() (or wrap the awaiting code in try/catch) so the failure is handled instead of surfacing as a console error."
+    },
+    {
+      test: function (msg) { return /syntaxerror/i.test(msg); },
+      title: "Syntax error in a loaded script",
+      recommendation: "A script failed to parse — often a minification/build issue, a stray character, or a script served as the wrong content-type (e.g. an HTML error page returned where JS was expected). Check the network response for the offending script."
+    },
+    {
+      test: function (msg) { return /mixed content/i.test(msg); },
+      title: "Mixed content (http:// on an https:// page)",
+      recommendation: "An https page is loading a resource over plain http://, which browsers block or warn on. Update the resource URL to https://, or use a protocol-relative/relative URL. The Mixed Content scanner tab can find these site-wide."
+    },
+    {
+      test: function (msg) { return /utag|tealium/i.test(msg); },
+      title: "Tealium tag manager issue",
+      recommendation: "This looks Tealium-related. Confirm utag.js loaded successfully (check the network tab for utag.js and utag_data), that this code runs after the Tealium sync/async load completes, and that no ad blocker or CSP rule is blocking the Tealium domain."
+    },
+    {
+      test: function (msg) { return /\bjquery\b|\$ is not defined/i.test(msg); },
+      title: "jQuery load-order issue",
+      recommendation: "Code depending on $/jQuery ran before jQuery loaded, or jQuery failed to load at all. Confirm the jQuery <script> tag is present, loads successfully, and completes before this code runs."
+    },
+    {
+      test: function (msg) { return /404|failed to load resource/i.test(msg); },
+      title: "Resource failed to load",
+      recommendation: "A referenced script/stylesheet/image returned an error status. Verify the URL is correct and the resource actually exists at that path — the Broken Links / Missing Images scanner tabs in this tool can confirm this across the whole site."
+    },
+    {
+      test: function (msg) { return /invoca/i.test(msg); },
+      title: "Invoca call-tracking tag missing a required parameter",
+      recommendation: "Invoca (dynamic number insertion / call tracking) tried to run but a required parameter wasn't populated — e.g. \"no PPCPN\" means it didn't have a pre-populated caller phone number to work with. Check the Invoca tag's setup in Tealium iQ: confirm whatever data layer variable, URL param, or cookie it expects for that parameter is actually being set on this page before the tag fires. Until it is, calls from this page load aren't being tracked/attributed by Invoca — the rest of the page is unaffected."
+    },
+    {
+      test: function (msg) { return /pinterest/i.test(msg); },
+      title: "Pinterest tag fired more than once",
+      recommendation: "The Pinterest conversion tag's load command ran twice with different tag IDs. Usually means the Pinterest snippet is being injected from more than one place (a hardcoded snippet plus a Tealium/GTM tag, or a client-side route change re-firing it without checking if it's already loaded). Check for duplicate Pinterest tag placements in Tealium iQ or the page template and dedupe them."
+    },
+    {
+      test: function (msg) { return /^script error\.?$/i.test(msg.trim()); },
+      title: "Cross-origin script threw with details hidden (\"Script error.\")",
+      recommendation: "Browsers replace the real message/stack with the generic \"Script error.\" when an uncaught exception comes from a script loaded from a different origin without CORS enabled for it (no Access-Control-Allow-Origin header, or the <script> tag is missing a matching crossorigin attribute) — this is deliberate, so cross-origin scripts can't leak details to the page. To see the real error: if you control the script, add crossorigin=\"anonymous\" to its <script> tag and make sure the server sends Access-Control-Allow-Origin for it. If it's a third-party/vendor tag you don't control, check the Network tab for scripts loaded around the same timestamp to identify which one it is — the console alone won't say more without CORS fixed on their end."
+    },
+    {
+      test: function (msg) { return /^at:\s*metric element not found/i.test(msg.trim()); },
+      title: "Adobe Target metric selector not found on this page",
+      recommendation: function (msg) {
+        var selectorMatch = msg.match(/"selector"\s*:\s*"([^"]+)"/);
+        var typeMatch = msg.match(/"type"\s*:\s*"([^"]+)"/);
+        var selector = selectorMatch ? selectorMatch[1] : "the configured selector";
+        var eventType = typeMatch ? typeMatch[1] : "an";
+        return "An Adobe Target activity has a " + eventType + " metric configured to track " + selector +
+          ", but that element doesn't exist on this page. Usually means the activity's page/audience targeting is broader than the pages that actually have that element (e.g. a metric meant for a different page or flow is still being evaluated here). Check that activity's metric configuration in Adobe Target (or the Tealium extension driving it) and either scope it to the right pages or fix the selector.";
+      }
+    },
+    {
+      test: function (msg) { return /failed actions/i.test(msg) && /trackclick/i.test(msg); },
+      title: "Adobe Target click-tracking actions failed to bind",
+      recommendation: "One or more click-tracking (trackClick) actions failed to attach — same root cause as the \"metric element not found\" warnings: the selector(s) referenced in this message's JSON don't exist on this page. Check each selector against the page and either fix that activity's page targeting in Adobe Target or fix the selector."
+    },
+    {
+      test: function (msg) { return /embeddedservice(bootstrap|messaging)/i.test(msg); },
+      title: "Salesforce Embedded Service (chat widget) — native function overridden",
+      recommendation: "The Salesforce Embedded Service (chat/messaging widget) is warning that a native browser function it depends on (e.g. window.clearTimeout) has been reassigned/monkey-patched by something else on the page, which can break its internal timers. Find what else on the page is overriding that native function — check other vendor tags/scripts, especially ones loading before the Embedded Service snippet — and make sure it either restores the original afterward or doesn't touch it at all."
+    }
+  ];
+
+  var CONSOLE_FALLBACK_RULE = {
+    title: "No specific pattern matched",
+    recommendation: "This message didn't match any of the known patterns above. Read the text and stack trace for the originating script/line — note whether it names a specific vendor tag, library, or your own code, since that points at where to start. If you see the same message recur across scans, it's worth adding a dedicated rule for it."
+  };
+
+  function matchConsoleRules(message) {
+    var matched = CONSOLE_ERROR_RULES.filter(function (rule) { return rule.test(message); });
+
+    var resolved = matched.map(function (rule) {
+      return {
+        title: rule.title,
+        recommendation: typeof rule.recommendation === "function" ? rule.recommendation(message) : rule.recommendation
+      };
+    });
+
+    return resolved.length ? resolved : [CONSOLE_FALLBACK_RULE];
+  }
+
+  var consoleState = createScanState("console");
+  consoleState.tabId = null;
+  consoleState.tabLabel = "";
+  consoleState.originPattern = null;
+  consoleState.errorCount = 0;
+  consoleState.warningCount = 0;
+  consoleState.rejectionCount = 0;
+
+  var consoleFindings = [];
+  var lastConsoleFindingKey = null;
+  var lastConsoleRowEl = null;
+
+  function getConsoleMaxFindings() {
+    var input = byId("consoleMaxFindings");
+    var value = parseInt(input.value, 10);
+
+    if (isNaN(value) || value < 25) value = CONSOLE_DEFAULT_MAX_FINDINGS;
+    if (value > 5000) value = 5000;
+
+    input.value = String(value);
+    return value;
+  }
+
+  function updateConsoleSummary() {
+    setText("consoleSumStatus", consoleState.status);
+    setText("consoleSumDuration", getDurationText(consoleState));
+    setText("consoleSumPages", consoleState.pagesScanned + " / " + consoleState.maxPages);
+    setText("consoleSumQueued", consoleState.queued);
+    setText("consoleSumEvents", consoleFindings.length);
+    setText("consoleSumErrors", consoleState.errorCount);
+    setText("consoleSumWarnings", consoleState.warningCount);
+    setText("consoleSumRejections", consoleState.rejectionCount);
+  }
+
+  async function refreshConsoleTabList(preferredTabId) {
+    var select = byId("consoleTabSelect");
+    var currentValue = select.value;
+    var tabs = await chrome.tabs.query({});
+    var httpTabs = tabs.filter(function (t) { return /^https?:\/\//i.test(t.url || ""); });
+
+    select.innerHTML = "";
+    if (!httpTabs.length) {
+      select.appendChild(new Option("No http(s) tabs open", ""));
+      return;
+    }
+
+    httpTabs.forEach(function (t) {
+      var label = (t.title ? t.title + " — " : "") + t.url;
+      select.appendChild(new Option(label, String(t.id)));
+    });
+
+    var target = preferredTabId != null ? String(preferredTabId) : currentValue;
+    if (target && httpTabs.some(function (t) { return String(t.id) === target; })) {
+      select.value = target;
+    }
+  }
+
+  function consoleEventTypeLabel(type) {
+    switch (type) {
+      case "uncaught-exception": return "Uncaught exception";
+      case "unhandled-rejection": return "Unhandled promise rejection";
+      case "console.error": return "console.error";
+      case "console.warn": return "console.warn";
+      default: return type;
+    }
+  }
+
+  function bumpConsoleTypeCounter(type) {
+    if (type === "uncaught-exception") consoleState.errorCount++;
+    else if (type === "unhandled-rejection") consoleState.rejectionCount++;
+    else if (type === "console.warn") consoleState.warningCount++;
+    else consoleState.errorCount++;
+  }
+
+  function addConsoleFinding(payload) {
+    if (consoleState.findingLimitHit) return;
+
+    var type = payload.type;
+    var message = payload.message || "";
+    var time = payload.time || Date.now();
+    var key = type + "|" + message;
+
+    // Collapse an event that's identical (same type+message) to the one
+    // immediately before it into a repeat count instead of adding a new
+    // row each time — a single noisy/looping error on the page otherwise
+    // floods the results list and can make the tab unresponsive.
+    if (key === lastConsoleFindingKey && consoleFindings.length) {
+      var last = consoleFindings[consoleFindings.length - 1];
+      last.count = (last.count || 1) + 1;
+      last.time = time;
+
+      bumpConsoleTypeCounter(type);
+      updateConsoleSummary();
+
+      if (lastConsoleRowEl) {
+        var metaEl = lastConsoleRowEl.querySelector(".meta");
+        if (metaEl) {
+          metaEl.textContent = consoleEventTypeLabel(type) + " — " + new Date(time).toLocaleTimeString() +
+            " (x" + last.count + ")";
+        }
+      }
+
+      return;
+    }
+
+    var matches = matchConsoleRules(message);
+
+    var finding = {
+      time: time,
+      type: type,
+      message: message,
+      stack: payload.stack || "",
+      pageUrl: payload.url || "",
+      count: 1,
+      recommendations: matches
+    };
+    consoleFindings.push(finding);
+    lastConsoleFindingKey = key;
+
+    bumpConsoleTypeCounter(type);
+
+    var maxFindings = getConsoleMaxFindings();
+    if (maxFindings > 0 && consoleFindings.length >= maxFindings) {
+      consoleState.findingLimitHit = true;
+      consoleState.stop = true;
+    }
+
+    updateConsoleSummary();
+
+    var resultsEl = byId("consoleResults");
+    if (resultsEl.querySelector(".empty")) resultsEl.innerHTML = "";
+
+    var row = document.createElement("div");
+    row.className = "result";
+
+    var msgEl = document.createElement("div");
+    msgEl.className = "bad";
+    msgEl.textContent = message || "(empty message)";
+
+    var metaEl = document.createElement("div");
+    metaEl.className = "meta";
+    metaEl.textContent = consoleEventTypeLabel(type) + " — " + new Date(time).toLocaleTimeString();
+
+    var pageEl = document.createElement("div");
+    pageEl.className = "page";
+    pageEl.textContent = "on: " + (payload.url || "(unknown)");
+
+    row.appendChild(msgEl);
+    row.appendChild(metaEl);
+    row.appendChild(pageEl);
+
+    matches.forEach(function (rule) {
+      var recEl = document.createElement("div");
+      recEl.className = "rec";
+      var titleEl = document.createElement("strong");
+      titleEl.textContent = rule.title;
+      recEl.appendChild(titleEl);
+      recEl.appendChild(document.createTextNode(rule.recommendation));
+      row.appendChild(recEl);
+    });
+
+    resultsEl.insertBefore(row, resultsEl.firstChild);
+    lastConsoleRowEl = row;
+
+    var logEl = byId("consoleLog");
+    logTo(logEl, "[" + consoleEventTypeLabel(type) + "] " + message);
+
+    if (consoleState.findingLimitHit) {
+      logTo(logEl, "Stopping at max captured events: " + maxFindings + ". Increase the limit, or Clear results and start again if you need more.");
+    }
+  }
+
+  function handleConsoleCaptureMessage(message, sender) {
+    if (!message || message.type !== "ACG_CONSOLE_CAPTURE_EVENT") return;
+    if (!consoleState.running) return;
+    if (!sender || !sender.tab || sender.tab.id !== consoleState.tabId) return;
+
+    addConsoleFinding(message.payload || {});
+  }
+
+  chrome.runtime.onMessage.addListener(function (message, sender) {
+    handleConsoleCaptureMessage(message, sender);
+  });
+
+  var CONSOLE_CAPTURE_MAIN_SCRIPT_ID = "acg-console-capture-main";
+  var CONSOLE_CAPTURE_RELAY_SCRIPT_ID = "acg-console-capture-relay";
+
+  // Beyond hooking the tab's current (already-loaded) page, arm a dynamic
+  // content script scoped to that tab's origin so the hook reinstalls
+  // itself automatically at document_start on the next load/reload —
+  // otherwise errors that only fire once during page/tag-manager init
+  // (the common case for Tealium/vendor tag failures) happen before a
+  // one-time injection into an already-loaded tab could ever see them.
+  // Origin-scoped, not tab-scoped (chrome.scripting has no such concept),
+  // so other tabs already on the same origin would also get hooked on
+  // their next load — harmless, since events are still filtered down to
+  // the selected tab's id before being recorded.
+  async function registerPersistentConsoleCapture(originPattern) {
+    try {
+      await chrome.scripting.unregisterContentScripts({
+        ids: [CONSOLE_CAPTURE_MAIN_SCRIPT_ID, CONSOLE_CAPTURE_RELAY_SCRIPT_ID]
+      });
+    } catch (e) { /* nothing registered yet — fine */ }
+
+    await chrome.scripting.registerContentScripts([
+      {
+        id: CONSOLE_CAPTURE_MAIN_SCRIPT_ID,
+        matches: [originPattern],
+        js: ["console-capture-main.js"],
+        runAt: "document_start",
+        world: "MAIN",
+        persistAcrossSessions: false
+      },
+      {
+        id: CONSOLE_CAPTURE_RELAY_SCRIPT_ID,
+        matches: [originPattern],
+        js: ["console-capture-relay.js"],
+        runAt: "document_start",
+        persistAcrossSessions: false
+      }
+    ]);
+  }
+
+  async function unregisterPersistentConsoleCapture() {
+    try {
+      await chrome.scripting.unregisterContentScripts({
+        ids: [CONSOLE_CAPTURE_MAIN_SCRIPT_ID, CONSOLE_CAPTURE_RELAY_SCRIPT_ID]
+      });
+    } catch (e) { /* already gone — fine */ }
+  }
+
+  function getConsoleMaxPages() {
+    var input = byId("consoleMaxPages");
+    var value = parseInt(input.value, 10);
+
+    if (isNaN(value) || value < 1) value = CONSOLE_SCAN_DEFAULT_MAX_PAGES;
+    if (value > CONSOLE_SCAN_HARD_MAX_PAGES) value = CONSOLE_SCAN_HARD_MAX_PAGES;
+
+    input.value = String(value);
+    return value;
+  }
+
+  function getConsoleSecondsPerPage() {
+    var input = byId("consoleSecondsPerPage");
+    var value = parseInt(input.value, 10);
+
+    if (isNaN(value) || value < 3) value = CONSOLE_SCAN_DEFAULT_SECONDS_PER_PAGE;
+    if (value > 60) value = 60;
+
+    input.value = String(value);
+    return value;
+  }
+
+  function waitForTabLoad(tabId, timeoutMs) {
+    return new Promise(function (resolve) {
+      var done = false;
+
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve(false);
+      }, timeoutMs);
+
+      function listener(updatedTabId, changeInfo) {
+        if (updatedTabId !== tabId || changeInfo.status !== "complete") return;
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve(true);
+      }
+
+      chrome.tabs.onUpdated.addListener(listener);
+    });
+  }
+
+  async function navigateConsoleScanTab(tabId, url) {
+    var tab = await chrome.tabs.get(tabId);
+    if (tab.url === url) {
+      await chrome.tabs.reload(tabId);
+    } else {
+      await chrome.tabs.update(tabId, { url: url });
+    }
+    await waitForTabLoad(tabId, CONSOLE_SCAN_NAV_TIMEOUT_MS);
+  }
+
+  async function extractLinksFromLiveTab(tabId, pageUrl) {
+    try {
+      var results = await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: function () {
+          return Array.prototype.slice.call(document.querySelectorAll("a[href]")).map(function (a) { return a.href; });
+        }
+      });
+      var raw = (results && results[0] && results[0].result) || [];
+      return raw.map(function (href) { return normalize(href, pageUrl); }).filter(Boolean);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function detachConsoleScan(tabId) {
+    try { await unregisterPersistentConsoleCapture(); } catch (e) { /* ignore */ }
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        world: "MAIN",
+        func: function () {
+          if (window.__acgConsoleCapture && window.__acgConsoleCapture.stop) {
+            window.__acgConsoleCapture.stop();
+          }
+        }
+      });
+    } catch (e) { /* tab may have navigated to another origin or closed */ }
+  }
+
+  async function runConsoleScan() {
+    if (consoleState.running) { alert("A console scan is already running."); return; }
+
+    var select = byId("consoleTabSelect");
+    var tabId = Number(select.value);
+    if (!tabId) { alert("Pick a target tab first."); return; }
+
+    var statusEl = byId("consoleStatus");
+    var logEl = byId("consoleLog");
+    var resultsEl = byId("consoleResults");
+
+    var startTab;
+    try {
+      startTab = await chrome.tabs.get(tabId);
+    } catch (e) {
+      alert("Could not read that tab: " + (e && e.message ? e.message : e));
+      return;
+    }
+
+    var startUrl;
+    try {
+      startUrl = new URL(startTab.url);
+      if (!isScannableUrl(startUrl.href)) throw new Error("not http(s)");
+    } catch (e) {
+      alert("Target tab must be an http(s) page.");
+      return;
+    }
+
+    consoleFindings = [];
+    lastConsoleFindingKey = null;
+    lastConsoleRowEl = null;
+    logEl.textContent = "";
+    resultsEl.innerHTML = "<div class='empty'>No events captured yet.</div>";
+
+    var maxPages = getConsoleMaxPages();
+    var secondsPerPage = getConsoleSecondsPerPage();
+    resetScanState(consoleState, maxPages);
+    consoleState.tabId = tabId;
+    consoleState.tabLabel = (startTab.title ? startTab.title + " — " : "") + startTab.url;
+    consoleState.errorCount = 0;
+    consoleState.warningCount = 0;
+    consoleState.rejectionCount = 0;
+    updateConsoleSummary();
+
+    var origin = startUrl.origin;
+    var originPattern = origin + "/*";
+    consoleState.originPattern = originPattern;
+
+    try {
+      await registerPersistentConsoleCapture(originPattern);
+    } catch (e) {
+      consoleState.errors++;
+      finishScanState(consoleState, "Error");
+      statusEl.textContent = "Could not arm console capture: " + (e && e.message ? e.message : e);
+      updateConsoleSummary();
+      return;
+    }
+
+    logTo(logEl, "Starting console scan...");
+    logTo(logEl, "Driving tab " + tabId + ", origin: " + origin);
+    logTo(logEl, "Max pages: " + maxPages + " | Seconds per page: " + secondsPerPage);
+
+    var firstUrl = normalize(startUrl.href, startUrl.href);
+    var queue = [firstUrl];
+    var visited = {};
+    var queued = {};
+    queued[canonicalizePageUrl(firstUrl)] = true;
+
+    while (queue.length && !consoleState.stop) {
+      var url = queue.shift();
+      var urlKey = canonicalizePageUrl(url);
+      if (!url || visited[urlKey]) continue;
+
+      visited[urlKey] = true;
+      consoleState.pagesScanned = Object.keys(visited).length;
+      consoleState.queued = queue.length;
+
+      statusEl.textContent = "Scanning " + consoleState.pagesScanned + " of max " + maxPages +
+        " | queued " + queue.length + " | events " + consoleFindings.length;
+      updateConsoleSummary();
+      logTo(logEl, "Navigating to: " + url);
+
+      try {
+        await navigateConsoleScanTab(tabId, url);
+      } catch (e) {
+        consoleState.skipped++;
+        consoleState.errors++;
+        logTo(logEl, "SKIP (navigation failed): " + url + " — " + (e && e.message ? e.message : e));
+        updateConsoleSummary();
+        if (consoleState.stop) break;
+        continue;
+      }
+
+      logTo(logEl, "Loaded. Watching for " + secondsPerPage + "s...");
+      await sleep(secondsPerPage * 1000);
+
+      if (consoleState.stop) break;
+
+      var links = await extractLinksFromLiveTab(tabId, url);
+      links.forEach(function (link) {
+        var linkKey = canonicalizePageUrl(link);
+        if (isSameOrigin(link, origin) && isScannableUrl(link) && isLikelyHtmlPage(link) && !visited[linkKey] && !queued[linkKey]) {
+          queue.push(link);
+          queued[linkKey] = true;
+        }
+      });
+
+      consoleState.queued = queue.length;
+      updateConsoleSummary();
+
+      if (Object.keys(visited).length >= maxPages) {
+        logTo(logEl, "Stopped at max page limit: " + maxPages);
+        break;
+      }
+    }
+
+    await detachConsoleScan(tabId);
+
+    var finalStatus = consoleState.findingLimitHit ? "Finding limit hit" : (consoleState.stop ? "Stopped" : "Complete");
+    finishScanState(consoleState, finalStatus);
+    statusEl.textContent = finalStatus === "Complete" ? "Scan complete" : finalStatus;
+    logTo(logEl, "Done. Pages scanned: " + consoleState.pagesScanned + " | Events: " + consoleFindings.length);
+    updateConsoleSummary();
+  }
+
+  function stopConsoleScan() {
+    if (!consoleState.running) { alert("No console scan is running."); return; }
+    consoleState.stop = true;
+    consoleState.status = "Stopping";
+    byId("consoleStatus").textContent = "Stopping...";
+  }
+
+  /* =========================
      Combined export
      ========================= */
 
@@ -2872,6 +3497,7 @@
   byId("tabSpellBtn").onclick = function () { setActiveTab("spell"); };
   byId("tabAuditBtn").onclick = function () { setActiveTab("audit"); };
   byId("tabWordBtn").onclick = function () { setActiveTab("word"); };
+  byId("tabConsoleBtn").onclick = function () { setActiveTab("console"); refreshConsoleTabList(); };
 
   byId("lowerScanBtn").onclick = function () { runLowerEnvironmentScan(); };
   byId("imageScanBtn").onclick = function () { runMissingImageScan(); };
@@ -2881,10 +3507,10 @@
   byId("mixedScanBtn").onclick = function () { runMixedContentScan(); };
   byId("auditScanBtn").onclick = function () { runPageAuditScan(); };
 
-  byId("runBothBtn").onclick = function () {
+  byId("runBothBtn").onclick = async function () {
     var started = [];
     var alreadyRunning = lowerState.running && imageState.running && spellState.running &&
-      linkState.running && mixedState.running && auditState.running;
+      linkState.running && mixedState.running && auditState.running && consoleState.running;
     var nothingElseToStart = alreadyRunning;
 
     if (!lowerState.running) { runLowerEnvironmentScan(); started.push("lower env links"); }
@@ -2905,6 +3531,21 @@
     } else if (!wordState.running) {
       byId("wordStatus").textContent = "Skipped by Run All: no search terms entered.";
       nothingElseToStart = false;
+    }
+
+    // Console Scan needs an actual target tab picked (unlike the fetch-based
+    // scanners above), and calling it with none selected would hit its own
+    // blocking alert() the same way Word Search's does. Refresh the tab list
+    // first so this reflects whatever tabs are actually open right now.
+    if (!consoleState.running) {
+      await refreshConsoleTabList();
+      if (byId("consoleTabSelect").value) {
+        runConsoleScan();
+        started.push("console errors");
+      } else {
+        byId("consoleStatus").textContent = "Skipped by Run All: no target tab available to drive.";
+        nothingElseToStart = false;
+      }
     }
 
     if (!started.length && nothingElseToStart) alert("All scans are already running.");
@@ -3004,6 +3645,11 @@
       byId("auditStatus").textContent = "Stopping page audit...";
       stoppedAny = true;
     }
+    if (consoleState.running) {
+      consoleState.stop = true; consoleState.status = "Stopping";
+      byId("consoleStatus").textContent = "Stopping...";
+      stoppedAny = true;
+    }
 
     if (!stoppedAny) alert("No scans are currently running.");
 
@@ -3014,6 +3660,7 @@
     updateLinkSummary();
     updateMixedSummary();
     updateAuditSummary();
+    updateConsoleSummary();
     updateGlobalSummary();
   };
 
@@ -3022,8 +3669,8 @@
 
     downloadCsv(
       "lower-environment-link-scan.csv",
-      ["Lower Environment Link", "Found On Page", "Matched Pattern"],
-      lowerFindings.map(function (f) { return [f.link, f.page, f.pattern]; })
+      ["Lower Environment Link", "Found On Page", "Canonical Page", "Matched Pattern"],
+      lowerFindings.map(function (f) { return [f.link, f.page, f.canonicalPage || f.page, f.pattern]; })
     );
   };
 
@@ -3032,8 +3679,8 @@
 
     downloadCsv(
       "missing-image-scan.csv",
-      ["Missing Image URL", "Found On Page", "Source", "Reason"],
-      imageFindings.map(function (f) { return [f.imageUrl, f.pageUrl, f.source, f.reason]; })
+      ["Missing Image URL", "Found On Page", "Canonical Page", "Source", "Reason"],
+      imageFindings.map(function (f) { return [f.imageUrl, f.pageUrl, f.canonicalPageUrl || f.pageUrl, f.source, f.reason]; })
     );
   };
 
@@ -3066,8 +3713,8 @@
 
     downloadCsv(
       "broken-link-scan.csv",
-      ["Link", "Found On Page", "Reason"],
-      linkFindings.map(function (f) { return [f.link, f.page, f.reason]; })
+      ["Link", "Found On Page", "Canonical Page", "Reason"],
+      linkFindings.map(function (f) { return [f.link, f.page, f.canonicalPage || f.page, f.reason]; })
     );
   };
 
@@ -3076,8 +3723,8 @@
 
     downloadCsv(
       "mixed-content-scan.csv",
-      ["Insecure Resource URL", "Found On Page", "Source"],
-      mixedFindings.map(function (f) { return [f.resourceUrl, f.pageUrl, f.source]; })
+      ["Insecure Resource URL", "Found On Page", "Canonical Page", "Source"],
+      mixedFindings.map(function (f) { return [f.resourceUrl, f.pageUrl, f.canonicalPageUrl || f.pageUrl, f.source]; })
     );
   };
 
@@ -3086,14 +3733,15 @@
 
     downloadCsv(
       "page-audit-scan.csv",
-      ["Page", "Issue", "Detail", "Source"],
-      auditFindings.map(function (f) { return [f.pageUrl, f.issue, f.detail, f.source]; })
+      ["Page", "Canonical Page", "Issue", "Detail", "Source"],
+      auditFindings.map(function (f) { return [f.pageUrl, f.canonicalPageUrl || f.pageUrl, f.issue, f.detail, f.source]; })
     );
   };
 
   byId("exportAllBtn").onclick = function () {
     var totalFindings = lowerFindings.length + imageFindings.length + spellFindings.length +
-      wordFindings.length + linkFindings.length + mixedFindings.length + auditFindings.length;
+      wordFindings.length + linkFindings.length + mixedFindings.length + auditFindings.length +
+      consoleFindings.length;
 
     if (!totalFindings) { alert("No results to export yet from any scan."); return; }
 
@@ -3106,7 +3754,8 @@
         wordSearch: { startUrl: byId("wordStart").value, terms: getWordTerms(), findings: wordFindings },
         brokenLinks: { startUrl: byId("linkStart").value, findings: linkFindings },
         mixedContent: { startUrl: byId("mixedStart").value, findings: mixedFindings },
-        pageAudit: { startUrl: byId("auditStart").value, findings: auditFindings }
+        pageAudit: { startUrl: byId("auditStart").value, findings: auditFindings },
+        consoleErrorCapture: { targetTab: consoleState.tabLabel, findings: consoleFindings }
       }
     });
   };
@@ -3125,6 +3774,43 @@
     } catch (e) {
       alert("Could not clear history: " + (e && e.message ? e.message : e));
     }
+  };
+
+  byId("consoleRefreshTabsBtn").onclick = function () { refreshConsoleTabList(); };
+  byId("consoleStartBtn").onclick = function () { runConsoleScan(); };
+  byId("consoleStopBtn").onclick = function () { stopConsoleScan(); };
+
+  byId("consoleClearBtn").onclick = function () {
+    consoleFindings = [];
+    consoleState.errorCount = 0;
+    consoleState.warningCount = 0;
+    consoleState.rejectionCount = 0;
+    consoleState.findingLimitHit = false;
+    lastConsoleFindingKey = null;
+    lastConsoleRowEl = null;
+    byId("consoleResults").innerHTML = "<div class='empty'>No events captured yet.</div>";
+    byId("consoleLog").textContent = "";
+    updateConsoleSummary();
+  };
+
+  byId("consoleExportBtn").onclick = function () {
+    if (!consoleFindings.length) { alert("No captured console events to export."); return; }
+
+    downloadCsv(
+      "console-error-capture.csv",
+      ["Time", "Type", "Message", "Repeat Count", "Page", "Recommendations", "Stack"],
+      consoleFindings.map(function (f) {
+        return [
+          new Date(f.time).toISOString(),
+          consoleEventTypeLabel(f.type),
+          f.message,
+          f.count || 1,
+          f.pageUrl,
+          f.recommendations.map(function (r) { return r.title; }).join("; "),
+          f.stack
+        ];
+      })
+    );
   };
 
   byId("presetSaveBtn").onclick = async function () {
@@ -3178,6 +3864,9 @@
   byId("maxPages").value = String(DEFAULT_MAX_PAGES);
   byId("spellMaxFindings").value = String(SPELL_DEFAULT_MAX_FINDINGS);
   byId("wordMaxFindings").value = String(WORD_DEFAULT_MAX_FINDINGS);
+  byId("consoleMaxFindings").value = String(CONSOLE_DEFAULT_MAX_FINDINGS);
+  byId("consoleMaxPages").value = String(CONSOLE_SCAN_DEFAULT_MAX_PAGES);
+  byId("consoleSecondsPerPage").value = String(CONSOLE_SCAN_DEFAULT_SECONDS_PER_PAGE);
 
   // background.js passes ?start=<origin> when this tab was opened from the
   // toolbar icon on an http(s) page, so the scanner defaults to that domain.
@@ -3205,6 +3894,9 @@
   logTo(byId("mixedLog"), "Mixed content scanner ready.");
   logTo(byId("auditLog"), "Page audit ready.");
 
+  byId("consoleStatus").textContent = "Ready";
+  logTo(byId("consoleLog"), "Console scan ready. Pick a target tab and click Start console scan.");
+
   updateLowerSummary();
   updateImageSummary();
   updateSpellSummary();
@@ -3212,7 +3904,9 @@
   updateLinkSummary();
   updateMixedSummary();
   updateAuditSummary();
+  updateConsoleSummary();
   updateGlobalSummary();
 
   refreshPresetOptions();
+  refreshConsoleTabList(getInitialTabId());
 })();
