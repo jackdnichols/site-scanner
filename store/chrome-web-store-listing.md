@@ -73,6 +73,13 @@ specifies, and reports the findings back to the user.
   locally via `chrome.storage.local`, so repeat scans of a site can flag
   findings that are new since the last run and don't require re-entering
   configuration. Nothing here is transmitted off the device.
+- **`scripting`**: Used only by Console Error Capture, an on-demand
+  feature that watches for JavaScript errors, warnings, and unhandled
+  promise rejections on a single browser tab the user explicitly picks
+  from a list of their own open tabs. Starting a capture injects a small
+  observer script into that one tab; it never runs automatically, is
+  never injected into any other tab, and is removed when the capture is
+  stopped or the tab navigates to a different site.
 - **Host permissions (`http://*/*`, `https://*/*`)**: Site Scanner is a
   user-directed auditing tool — the user manually types in the URL of any
   site they want to scan, and the extension crawls only that origin (plus
