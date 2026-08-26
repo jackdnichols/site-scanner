@@ -22,7 +22,8 @@ Both listing docs already reference this URL.
 ```
 cd "/home/jack@hq.nicholssoftware.com/ProjectsGit/Site-Scanner"
 zip -r site-scanner.zip manifest.json background.js site-scanner.html \
-  site-scanner.js icons -x "*.DS_Store"
+  site-scanner.js console-capture-main.js console-capture-relay.js icons \
+  -x "*.DS_Store"
 ```
 Don't include `store/`, `.git/`, or `.claude/` in the zip — only files the
 manifest references.
