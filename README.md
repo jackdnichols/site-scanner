@@ -5,14 +5,15 @@ engine now lives primarily in `ACG-State-Switcher/site-scanner.html`/
 `site-scanner.js`, which is where new features and fixes land first. This
 copy (site-scanner.js/html, plus console-capture-main.js/relay.js) is kept
 in sync with that fork so this project stays independently usable — last
-synced 2026-08-26.
+synced 2026-10-02 (ACG-State-Switcher v1.101).
 
 ---
 
-Personal browser extension: point it at any website and run eight scanners
+Personal browser extension: point it at any website and run nine scanners
 against it — lower-environment link leaks, broken links, missing images,
 mixed content, spelling/typos, a basic SEO/accessibility page audit,
-free-text word search, and live Console Error Capture. This is a
+free-text word search, URL search across links and buttons, and live
+Console Error Capture. This is a
 standalone, general-purpose port of the Site Inspector tool from the
 ACG-State-Switcher extension: it has no knowledge of acg.aaa.com,
 meemic.com, or meemicfoundation.org, and no ACG-specific state-switching
@@ -27,7 +28,8 @@ functionality.
 ## Use
 
 Click the toolbar icon while on any `http(s)` page to open Site Scanner in a
-new tab, prefilled with that page's origin. Or open `site-scanner.html`
+new tab, prefilled with that page's URL (crawls still cover its whole
+origin, starting from that page). Or open `site-scanner.html`
 directly and type in any Start URL.
 
 - **Lower Env Links** — crawls the Start URL's origin and reports links that
@@ -52,6 +54,12 @@ directly and type in any Start URL.
   with no associated label.
 - **Word Search** — searches page copy for a list of words/phrases you supply
   and reports where they show up.
+- **URL Search** — finds links and buttons pointing at a list of URLs you
+  supply: `<a>`/`<area>` hrefs, submit buttons (via `formaction` or their
+  form's `action`), URLs in inline `onclick` handlers, and
+  `data-href`/`data-url`/`data-link` attributes. Matches by "contains"
+  (default), exact URL (ignoring `#hash`, tracking params, and trailing
+  slash), or "starts with".
 - **Console Error Capture** — attach to an open http(s) tab and watch its
   console for JavaScript errors, warnings, and unhandled promise
   rejections as they happen, with plain-English explanations and fix
@@ -63,8 +71,8 @@ directly and type in any Start URL.
   tab's real console output — not what a logged-out fetch would see.
 
 Each scan can be run and stopped independently, or all at once with "Run
-all"/"Stop all" (Word Search only joins "Run all" once you've entered search
-terms). Results can be exported to CSV from each tab, or as one combined
+all"/"Stop all" (Word Search and URL Search only join "Run all" once you've
+entered search terms/URLs). Results can be exported to CSV from each tab, or as one combined
 JSON file via "Download all results (JSON)" in the top card.
 
 ### Scan history

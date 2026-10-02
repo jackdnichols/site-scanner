@@ -1,5 +1,6 @@
 // Clicking the toolbar icon opens Site Scanner in its own tab (no popup),
-// prefilled with the origin of the tab that was active when clicked. This
+// prefilled with the URL (minus any #hash) of the tab that was active when
+// clicked. Crawls still cover that page's whole origin; they just start there. This
 // mirrors how the ACG-State-Switcher extension's Site Inspector opened,
 // minus the popup step, since Site Scanner has no other functionality to
 // show in a popup.
@@ -8,7 +9,9 @@ chrome.action.onClicked.addListener(async (tab) => {
 
   try {
     if (tab && tab.url && /^https?:\/\//i.test(tab.url)) {
-      startUrl = new URL(tab.url).origin + "/";
+      const pageUrl = new URL(tab.url);
+      pageUrl.hash = "";
+      startUrl = pageUrl.href;
     }
   } catch (e) {
     // fall back to Site Scanner's own blank default

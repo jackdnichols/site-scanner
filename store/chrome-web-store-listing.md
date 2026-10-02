@@ -31,6 +31,8 @@ or care about and run one or more crawlers against it:
   form fields.
 - **Word Search** — searches page copy for any list of words or phrases
   you supply.
+- **URL Search** — finds every link and button that points at any list
+  of URLs you supply.
 
 Each scan runs independently or all at once, exports to CSV (or one
 combined JSON file for everything), and remembers findings from your last
@@ -67,7 +69,7 @@ specifies, and reports the findings back to the user.
 
 - **`activeTab`**: Used only to read the URL of the tab that was active
   when the toolbar icon was clicked, so the scanner's Start URL field can
-  be prefilled with that page's origin. No content script is injected and
+  be prefilled with that page's URL. No content script is injected and
   no other access to the tab occurs.
 - **`storage`**: Used to store scan history and per-origin presets
   locally via `chrome.storage.local`, so repeat scans of a site can flag
