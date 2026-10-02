@@ -5,7 +5,7 @@ engine now lives primarily in `ACG-State-Switcher/site-scanner.html`/
 `site-scanner.js`, which is where new features and fixes land first. This
 copy (site-scanner.js/html, plus console-capture-main.js/relay.js) is kept
 in sync with that fork so this project stays independently usable — last
-synced 2026-10-02 (ACG-State-Switcher v1.101).
+synced 2026-10-02 (ACG-State-Switcher v1.102).
 
 ---
 
